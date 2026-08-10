@@ -4,7 +4,10 @@
 #include <GxEPD2_BW.h> // Eink Library
 #include <Wire.h>
 #include <SPI.h>
-#include <Fonts/FreeMonoBold9pt7b.h> // font for EINK?
+#include <Fonts/FreeMonoBold24pt7b.h>// font for EINK?
+#include <Adafruit_GFX.h>
+// #include <JetBrainsMonoBold75pt7b.h>
+#include <InconsolataBold75pt7b.h>
 
 // =========================
 // General pins
@@ -79,6 +82,52 @@ void drawDisplayBoarder() {
             display.drawLine(112, y, 112, y + 2, GxEPD_BLACK);
         }
 
+        // // Hours: 1
+        // display.setCursor(60, 145);
+        // display.print("1");
+
+        // // Hours: 0
+        // display.setCursor(145, 145);
+        // display.print("0");
+
+        // // Minutes: 5
+        // display.setCursor(230, 145);
+        // display.print("5");
+
+        // // Minutes: 6
+        // display.setCursor(315, 145);
+        // display.print("6");
+
+    } while (display.nextPage());
+}
+
+void drawCenteredDigit(char digit, int x1, int y1, int x2, int y2) {
+
+    int16_t textX, textY;
+    uint16_t textWidth, textHeight;
+
+    display.getTextBounds(
+        String(digit),
+        0,
+        0,
+        &textX,
+        &textY,
+        &textWidth,
+        &textHeight
+    );
+
+    int cursorX = x1 + ((x2 - x1 - textWidth) / 2) - textX;
+    int cursorY = y1 + ((y2 - y1 - textHeight) / 2) - textY;
+
+    // Tell the display which area we want to update
+    display.setPartialWindow(x1, y1, x2 - x1, y2 - y1);
+
+    display.firstPage();
+
+    do {
+        display.setCursor(cursorX, cursorY);
+        display.print(digit);
+
     } while (display.nextPage());
 }
 
@@ -109,7 +158,7 @@ void setup() {
 
     // Setup EINK Display
     display.setRotation(0);
-    display.setFont(&FreeMonoBold9pt7b);
+    display.setFont(&inconsolata_bold75pt7b);
     display.setTextColor(GxEPD_BLACK);
 
     // Draw Hello World
@@ -123,6 +172,10 @@ void setup() {
     // } while (display.nextPage());
 
     drawDisplayBoarder();
+    drawCenteredDigit('1', 25, 25, 112, 225);
+    drawCenteredDigit('0', 112, 25, 200, 225);
+    drawCenteredDigit('5', 200, 25, 288, 225);
+    drawCenteredDigit('6', 288, 25, 375, 225);
 
 
     Serial.println("ESP32 Ready!");
