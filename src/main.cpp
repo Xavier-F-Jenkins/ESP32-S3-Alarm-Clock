@@ -46,6 +46,23 @@ GxEPD2_BW<
     )
 );
 
+void drawDisplayBoarder() {
+    display.firstPage();
+    do {
+        display.fillScreen(GxEPD_WHITE);
+        
+        // Top Padding boundary
+        //               xS  yS   xE   yE
+        display.drawLine(0, 25, 400, 25, GxEPD_BLACK);
+        // Bottom Padding Boundary
+        display.drawLine(0, 275, 400, 275, GxEPD_BLACK);
+        // LHS Padding Boundary
+        display.drawLine(25, 0, 25, 300, GxEPD_BLACK);
+        // RHS Padding Boundary
+        display.drawLine(375, 0, 375, 300, GxEPD_BLACK);
+    } while (display.nextPage());
+}
+
 void setup() {
     Serial.begin(115200);
 
@@ -78,13 +95,16 @@ void setup() {
 
     // Draw Hello World
     display.setFullWindow();
-    display.firstPage();
+    // display.firstPage();
 
-    do {
-        display.fillScreen(GxEPD_WHITE);
-        display.setCursor(0,15);
-        display.print("Hello World! This is Xavier Jenkins E-Ink Display!");
-    } while (display.nextPage());
+    // do {
+    //     display.fillScreen(GxEPD_WHITE);
+    //     display.setCursor(0,15);
+    //     display.print("Hello World! This is Xavier Jenkins E-Ink Display!");
+    // } while (display.nextPage());
+
+    drawDisplayBoarder();
+
 
     Serial.println("ESP32 Ready!");
 }
@@ -107,13 +127,14 @@ void loop() {
     Serial.print(now.unixtime() / 86400L);
     Serial.println("d");
 
-    display.setFullWindow();
-    display.firstPage();
-    do {
-        display.fillScreen(GxEPD_WHITE);
-        display.setCursor(0,15);
-        display.print(currentTime);
-    } while (display.nextPage());
+
+    // display.setFullWindow();
+    // display.firstPage();
+    // do {
+    //     display.fillScreen(GxEPD_WHITE);
+    //     display.setCursor(0,15);
+    //     display.print(currentTime);
+    // } while (display.nextPage());
 
 
     if (digitalRead(SET_BUTTON) == LOW) {
@@ -127,5 +148,6 @@ void loop() {
         led.show();
     }
 
-    delay(15000); // 15 seconds
+    delay(5000); // 5 seconds
 }
+
