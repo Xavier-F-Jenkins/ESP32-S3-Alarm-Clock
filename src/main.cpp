@@ -50,7 +50,6 @@ void drawDisplayBoarder() {
     display.firstPage();
     do {
         display.fillScreen(GxEPD_WHITE);
-        
         // Top Padding boundary
         //               xS  yS   xE   yE
         display.drawLine(0, 25, 400, 25, GxEPD_BLACK);
@@ -60,6 +59,26 @@ void drawDisplayBoarder() {
         display.drawLine(25, 0, 25, 300, GxEPD_BLACK);
         // RHS Padding Boundary
         display.drawLine(375, 0, 375, 300, GxEPD_BLACK);
+
+        // draw horizontal 1/5 bottom segment
+        for (int x = 25; x < 375; x += 5) {
+            display.drawLine(x, 225, x + 2, 225, GxEPD_BLACK);
+        }
+
+        // Draw verticle middle dotted border
+        for (int y = 25; y < 225; y += 5) {
+            display.drawLine(200, y, 200, y + 2, GxEPD_BLACK);
+        }
+        // Draw verticle LHS middle dotted border
+        for (int y = 25; y < 225; y += 5) {
+            display.drawLine(288, y, 288, y + 2, GxEPD_BLACK);
+        }
+
+        // Draw verticle RHS middle dotted border
+        for (int y = 25; y < 225; y += 5) {
+            display.drawLine(112, y, 112, y + 2, GxEPD_BLACK);
+        }
+
     } while (display.nextPage());
 }
 
