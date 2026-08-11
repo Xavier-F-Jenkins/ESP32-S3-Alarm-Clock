@@ -4,10 +4,11 @@
 #include <GxEPD2_BW.h> // Eink Library
 #include <Wire.h>
 #include <SPI.h>
-#include <Fonts/FreeMonoBold24pt7b.h>// font for EINK?
 #include <Adafruit_GFX.h>
-// #include <JetBrainsMonoBold75pt7b.h>
-#include <InconsolataBold75pt7b.h>
+#include <InconsolataBold75pt7b.h> // Display Fonts
+#include <InconsolataBold48pt7b.h>
+#include <InconsolataBold32pt7b.h>
+#include <InconsolataBold24pt7b.h>
 
 // =========================
 // General pins
@@ -24,6 +25,30 @@
 #define EINK_DC_PIN 6
 #define EINK_RES_PIN 5
 #define EINK_BUSY_PIN 4
+// Display reigons
+#define HOUR1_X1 27
+#define HOUR1_Y1 27
+#define HOUR1_X2 110
+#define HOUR1_Y2 223
+// #define HOUR1_X1 28
+// #define HOUR1_Y1 28
+// #define HOUR1_X2 109
+// #define HOUR1_Y2 222
+#define HOUR2_X1 114
+#define HOUR2_Y1 27
+#define HOUR2_X2 198
+#define HOUR2_Y2 223
+#define MINUTE1_X1 202
+#define MINUTE1_Y1 27
+#define MINUTE1_X2 286
+#define MINUTE1_Y2 223
+#define MINUTE2_X1 290
+#define MINUTE2_Y1 27
+#define MINUTE2_X2 373
+#define MINUTE2_Y2 223
+// Fonts
+#define TIME_FONT_XL &inconsolata_bold75pt7b
+
 // =========================
 
 // RTC
@@ -82,22 +107,6 @@ void drawDisplayBoarder() {
             display.drawLine(112, y, 112, y + 2, GxEPD_BLACK);
         }
 
-        // // Hours: 1
-        // display.setCursor(60, 145);
-        // display.print("1");
-
-        // // Hours: 0
-        // display.setCursor(145, 145);
-        // display.print("0");
-
-        // // Minutes: 5
-        // display.setCursor(230, 145);
-        // display.print("5");
-
-        // // Minutes: 6
-        // display.setCursor(315, 145);
-        // display.print("6");
-
     } while (display.nextPage());
 }
 
@@ -106,8 +115,10 @@ void drawCenteredDigit(char digit, int x1, int y1, int x2, int y2) {
     int16_t textX, textY;
     uint16_t textWidth, textHeight;
 
+    String text = String(digit);
+
     display.getTextBounds(
-        String(digit),
+        text,
         0,
         0,
         &textX,
@@ -119,12 +130,25 @@ void drawCenteredDigit(char digit, int x1, int y1, int x2, int y2) {
     int cursorX = x1 + ((x2 - x1 - textWidth) / 2) - textX;
     int cursorY = y1 + ((y2 - y1 - textHeight) / 2) - textY;
 
-    // Tell the display which area we want to update
-    display.setPartialWindow(x1, y1, x2 - x1, y2 - y1);
+    // Actual visible character position
+    int actualX = cursorX + textX;
+    int actualY = cursorY + textY;
+
+    // Small padding around the character
+    int padding = 2;
+
+    display.setPartialWindow(
+        actualX - padding,
+        actualY - padding,
+        textWidth + padding * 2,
+        textHeight + padding * 2
+    );
 
     display.firstPage();
 
     do {
+        display.fillScreen(GxEPD_WHITE);
+
         display.setCursor(cursorX, cursorY);
         display.print(digit);
 
@@ -158,7 +182,7 @@ void setup() {
 
     // Setup EINK Display
     display.setRotation(0);
-    display.setFont(&inconsolata_bold75pt7b);
+    display.setFont(TIME_FONT_XL);
     display.setTextColor(GxEPD_BLACK);
 
     // Draw Hello World
@@ -172,10 +196,11 @@ void setup() {
     // } while (display.nextPage());
 
     drawDisplayBoarder();
-    drawCenteredDigit('1', 25, 25, 112, 225);
-    drawCenteredDigit('0', 112, 25, 200, 225);
-    drawCenteredDigit('5', 200, 25, 288, 225);
-    drawCenteredDigit('6', 288, 25, 375, 225);
+    drawCenteredDigit('1', HOUR1_X1, HOUR1_Y1, HOUR1_X2, HOUR1_Y2);
+    drawCenteredDigit('0', HOUR2_X1, HOUR2_Y1, HOUR2_X2, HOUR2_Y2);
+    drawCenteredDigit(':', 190, 25, 210, 225);
+    drawCenteredDigit('5', MINUTE1_X1, MINUTE1_Y1, MINUTE1_X2, MINUTE1_Y2);
+    drawCenteredDigit('6', MINUTE2_X1, MINUTE2_Y1, MINUTE2_X2, MINUTE2_Y2);
 
 
     Serial.println("ESP32 Ready!");
