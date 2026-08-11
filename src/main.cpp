@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <Adafruit_NeoPixel.h> // LED configuration
+// #include <Adafruit_NeoPixel.h> // LED configuration
 #include <DS3231.h> // RTC library
 #include <GxEPD2_BW.h> // Eink Library
 #include <Wire.h>
@@ -12,9 +12,10 @@
 
 // =========================
 // General pins
-#define NUM_PIXELS 1
+// #define NUM_PIXELS 1
+#define PLUS_BUTTON 48
+#define MINUS_BUTTON 47
 #define SET_BUTTON 21
-#define LED_PIN 48
 // I2C pins - DS3231 RTC
 #define SDA_PIN 10
 #define SCL_PIN 11
@@ -96,12 +97,6 @@ uint8_t previousMinute = 255;
 // RTC
 RTClib myRTC;
 
-// LED
-Adafruit_NeoPixel led(
-    NUM_PIXELS,
-    LED_PIN,
-    NEO_GRB + NEO_KHZ800
-);
 
 // E-ink display
 GxEPD2_BW<
@@ -284,13 +279,10 @@ void setup() {
         EINK_CS_PIN
     );
 
-    // Button
+    // +, -, SET Buttons
+    pinMode(PLUS_BUTTON, INPUT_PULLUP);
+    pinMode(MINUS_BUTTON, INPUT_PULLUP);
     pinMode(SET_BUTTON, INPUT_PULLUP);
-
-    // LED
-    led.begin();
-    led.clear();
-    led.show();
 
     // Init EINK Display
     display.init(115200);
@@ -308,9 +300,6 @@ void setup() {
         COLON_X1, COLON_Y1,
         COLON_X2, COLON_Y2
     );
-
-
-
 
     Serial.println("ESP32 Ready!");
 }
@@ -370,26 +359,6 @@ void loop() {
         Serial.println(currentDate);
     }
 
-    // =========================
-    // SET button test
-    // =========================
-
-    if (digitalRead(SET_BUTTON) == LOW) {
-
-        led.setPixelColor(
-            0,
-            led.Color(255, 0, 0)
-        );
-
-        led.show();
-
-        Serial.println("SET button pressed");
-
-    } else {
-
-        led.clear();
-        led.show();
-    }
 
     // Check RTC approximately once per second
     delay(1000);
