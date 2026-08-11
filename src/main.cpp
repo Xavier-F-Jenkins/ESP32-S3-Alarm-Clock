@@ -94,8 +94,24 @@ const char* months[] = {
 // Initialise minute
 uint8_t previousMinute = 255;
 
+enum ClockMode {
+    NORMAL_MODE,
+    SET_HOUR_MODE,
+    SET_MINUTE_MODE
+};
+
+ClockMode clockMode = NORMAL_MODE;
+
+uint8_t settingHour = 0;
+uint8_t settingMinute = 0;
+
+bool previousSetButtonState = HIGH;
+bool previousPlusButtonState = HIGH;
+bool previousMinusButtonState = HIGH;
+
 // RTC
 RTClib myRTC;
+DS3231 rtcClock(Wire);
 
 
 // E-ink display
@@ -192,6 +208,41 @@ void drawCenteredDigit(char digit, int x1, int y1, int x2, int y2) {
     } while (display.nextPage());
 }
 
+void drawTimeValues(uint8_t hour, uint8_t minute) {
+
+    char hour1 = '0' + (hour / 10);
+    char hour2 = '0' + (hour % 10);
+
+    char minute1 = '0' + (minute / 10);
+    char minute2 = '0' + (minute % 10);
+
+    display.setFont(TIME_FONT_XL);
+
+    drawCenteredDigit(
+        hour1,
+        HOUR1_X1, HOUR1_Y1,
+        HOUR1_X2, HOUR1_Y2
+    );
+
+    drawCenteredDigit(
+        hour2,
+        HOUR2_X1, HOUR2_Y1,
+        HOUR2_X2, HOUR2_Y2
+    );
+
+    drawCenteredDigit(
+        minute1,
+        MINUTE1_X1, MINUTE1_Y1,
+        MINUTE1_X2, MINUTE1_Y2
+    );
+
+    drawCenteredDigit(
+        minute2,
+        MINUTE2_X1, MINUTE2_Y1,
+        MINUTE2_X2, MINUTE2_Y2
+    );
+}
+
 void drawCenteredText(String text, int x1, int y1, int x2, int y2) {
 
     int16_t textX, textY;
@@ -228,41 +279,7 @@ void drawCenteredText(String text, int x1, int y1, int x2, int y2) {
 }
 
 void drawTime(DateTime now) {
-
-    uint8_t hour = now.hour();
-    uint8_t minute = now.minute();
-
-    char hour1 = '0' + (hour / 10);
-    char hour2 = '0' + (hour % 10);
-
-    char minute1 = '0' + (minute / 10);
-    char minute2 = '0' + (minute % 10);
-
-    display.setFont(TIME_FONT_XL);
-
-    drawCenteredDigit(
-        hour1,
-        HOUR1_X1, HOUR1_Y1,
-        HOUR1_X2, HOUR1_Y2
-    );
-
-    drawCenteredDigit(
-        hour2,
-        HOUR2_X1, HOUR2_Y1,
-        HOUR2_X2, HOUR2_Y2
-    );
-
-    drawCenteredDigit(
-        minute1,
-        MINUTE1_X1, MINUTE1_Y1,
-        MINUTE1_X2, MINUTE1_Y2
-    );
-
-    drawCenteredDigit(
-        minute2,
-        MINUTE2_X1, MINUTE2_Y1,
-        MINUTE2_X2, MINUTE2_Y2
-    );
+    drawTimeValues(now.hour(), now.minute());
 }
 
 void setup() {
@@ -303,64 +320,189 @@ void setup() {
 
     Serial.println("ESP32 Ready!");
 }
-
 void loop() {
 
-    // Read current date/time from RTC
     DateTime now = myRTC.now();
 
-    // Only update the e-ink display when the minute changes
-    if (now.minute() != previousMinute) {
+    bool setButtonState = digitalRead(SET_BUTTON);
+    bool plusButtonState = digitalRead(PLUS_BUTTON);
+    bool minusButtonState = digitalRead(MINUS_BUTTON);
 
-        // =========================
-        // Draw current time
-        // =========================
+    // Detect NEW button presses
+    bool setPressed =
+        previousSetButtonState == HIGH &&
+        setButtonState == LOW;
 
-        display.setFont(TIME_FONT_XL);
-        drawTime(now);
+    bool plusPressed =
+        previousPlusButtonState == HIGH &&
+        plusButtonState == LOW;
 
-        // =========================
-        // Create current date string
-        // =========================
+    bool minusPressed =
+        previousMinusButtonState == HIGH &&
+        minusButtonState == LOW;
 
-        String currentDate =
-            String(days[now.dayOfTheWeek()]) + " " +
-            String(now.day()) + " " +
-            String(months[now.month() - 1]) + " " +
-            String(now.year());
 
-        // =========================
-        // Draw current date
-        // =========================
+    // ==========================================
+    // NORMAL MODE
+    // ==========================================
 
-        display.setFont(DATE_FONT);
+    if (clockMode == NORMAL_MODE) {
 
-        drawCenteredText(
-            currentDate,
-            DATE_X1,
-            DATE_Y1,
-            DATE_X2,
-            DATE_Y2
-        );
+        // Update clock display once per minute
+        if (now.minute() != previousMinute) {
 
-        // Remember which minute we just displayed
-        previousMinute = now.minute();
+            display.setFont(TIME_FONT_XL);
+            drawTime(now);
 
-        // Debug output
-        Serial.print("Display updated: ");
-        Serial.print(now.hour());
-        Serial.print(":");
+            String currentDate =
+                String(days[now.dayOfTheWeek()]) + " " +
+                String(now.day()) + " " +
+                String(months[now.month() - 1]) + " " +
+                String(now.year());
 
-        if (now.minute() < 10) {
-            Serial.print("0");
+            display.setFont(DATE_FONT);
+
+            drawCenteredText(
+                currentDate,
+                DATE_X1,
+                DATE_Y1,
+                DATE_X2,
+                DATE_Y2
+            );
+
+            previousMinute = now.minute();
+
+            Serial.print("Display updated: ");
+            Serial.print(now.hour());
+            Serial.print(":");
+
+            if (now.minute() < 10) {
+                Serial.print("0");
+            }
+
+            Serial.println(now.minute());
         }
 
-        Serial.println(now.minute());
-        Serial.println(currentDate);
+        // Press SET to start editing the hour
+        if (setPressed) {
+
+            settingHour = now.hour();
+            settingMinute = now.minute();
+
+            clockMode = SET_HOUR_MODE;
+
+            Serial.println("SET HOUR MODE");
+        }
     }
 
 
-    // Check RTC approximately once per second
-    delay(1000);
+    // ==========================================
+    // SET HOUR MODE
+    // ==========================================
+
+    else if (clockMode == SET_HOUR_MODE) {
+
+        if (plusPressed) {
+
+            settingHour++;
+
+            if (settingHour > 23) {
+                settingHour = 0;
+            }
+
+            drawTimeValues(settingHour, settingMinute);
+
+            Serial.print("Setting hour: ");
+            Serial.println(settingHour);
+        }
+
+        if (minusPressed) {
+
+            if (settingHour == 0) {
+                settingHour = 23;
+            } else {
+                settingHour--;
+            }
+
+            drawTimeValues(settingHour, settingMinute);
+
+            Serial.print("Setting hour: ");
+            Serial.println(settingHour);
+        }
+
+        // Press SET again to move to minute setting
+        if (setPressed) {
+
+            clockMode = SET_MINUTE_MODE;
+
+            Serial.println("SET MINUTE MODE");
+        }
+    }
+
+
+    // ==========================================
+    // SET MINUTE MODE
+    // ==========================================
+
+    else if (clockMode == SET_MINUTE_MODE) {
+
+        if (plusPressed) {
+
+            settingMinute++;
+
+            if (settingMinute > 59) {
+                settingMinute = 0;
+            }
+
+            drawTimeValues(settingHour, settingMinute);
+
+            Serial.print("Setting minute: ");
+            Serial.println(settingMinute);
+        }
+
+        if (minusPressed) {
+
+            if (settingMinute == 0) {
+                settingMinute = 59;
+            } else {
+                settingMinute--;
+            }
+
+            drawTimeValues(settingHour, settingMinute);
+
+            Serial.print("Setting minute: ");
+            Serial.println(settingMinute);
+        }
+
+        // Press SET again to save
+        if (setPressed) {
+
+            DateTime newTime(
+                now.year(),
+                now.month(),
+                now.day(),
+                settingHour,
+                settingMinute,
+                0
+            );
+
+            rtcClock.adjust(newTime);
+
+            clockMode = NORMAL_MODE;
+
+            // Force display to refresh from RTC
+            previousMinute = 255;
+
+            Serial.println("TIME SAVED");
+        }
+    }
+
+
+    // Save button states for next loop
+    previousSetButtonState = setButtonState;
+    previousPlusButtonState = plusButtonState;
+    previousMinusButtonState = minusButtonState;
+
+    delay(50);
 }
 
