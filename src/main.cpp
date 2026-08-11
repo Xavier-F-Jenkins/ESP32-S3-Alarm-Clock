@@ -26,30 +26,72 @@
 #define EINK_RES_PIN 5
 #define EINK_BUSY_PIN 4
 // Display reigons
-#define HOUR1_X1 27
+// Left hour digit
+#define HOUR1_X1 20
 #define HOUR1_Y1 27
-#define HOUR1_X2 110
+#define HOUR1_X2 105
 #define HOUR1_Y2 223
-// #define HOUR1_X1 28
-// #define HOUR1_Y1 28
-// #define HOUR1_X2 109
-// #define HOUR1_Y2 222
-#define HOUR2_X1 114
+
+// Right hour digit
+#define HOUR2_X1 100
 #define HOUR2_Y1 27
-#define HOUR2_X2 198
+#define HOUR2_X2 178
 #define HOUR2_Y2 223
-#define MINUTE1_X1 202
+
+// Colon
+#define COLON_X1 178
+#define COLON_Y1 27
+#define COLON_X2 222
+#define COLON_Y2 223
+
+// Left minute digit
+#define MINUTE1_X1 222
 #define MINUTE1_Y1 27
-#define MINUTE1_X2 286
+#define MINUTE1_X2 300
 #define MINUTE1_Y2 223
-#define MINUTE2_X1 290
+
+// Right minute digit
+#define MINUTE2_X1 295
 #define MINUTE2_Y1 27
-#define MINUTE2_X2 373
+#define MINUTE2_X2 380
 #define MINUTE2_Y2 223
+// Date region
+#define DATE_X1 25
+#define DATE_Y1 228
+#define DATE_X2 375
+#define DATE_Y2 275
 // Fonts
 #define TIME_FONT_XL &inconsolata_bold75pt7b
-
+#define DATE_FONT &inconsolata_bold24pt7b
 // =========================
+
+const char* days[] = {
+    "SUN",
+    "MON",
+    "TUE",
+    "WED",
+    "THU",
+    "FRI",
+    "SAT"
+};
+
+const char* months[] = {
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC"
+};
+
+// Initialise minute
+uint8_t previousMinute = 255;
 
 // RTC
 RTClib myRTC;
@@ -155,6 +197,79 @@ void drawCenteredDigit(char digit, int x1, int y1, int x2, int y2) {
     } while (display.nextPage());
 }
 
+void drawCenteredText(String text, int x1, int y1, int x2, int y2) {
+
+    int16_t textX, textY;
+    uint16_t textWidth, textHeight;
+
+    display.getTextBounds(
+        text,
+        0,
+        0,
+        &textX,
+        &textY,
+        &textWidth,
+        &textHeight
+    );
+
+    int cursorX = x1 + ((x2 - x1 - textWidth) / 2) - textX;
+    int cursorY = y1 + ((y2 - y1 - textHeight) / 2) - textY;
+
+    display.setPartialWindow(
+        x1,
+        y1,
+        x2 - x1,
+        y2 - y1
+    );
+
+    display.firstPage();
+
+    do {
+        display.fillScreen(GxEPD_WHITE);
+        display.setCursor(cursorX, cursorY);
+        display.print(text);
+
+    } while (display.nextPage());
+}
+
+void drawTime(DateTime now) {
+
+    uint8_t hour = now.hour();
+    uint8_t minute = now.minute();
+
+    char hour1 = '0' + (hour / 10);
+    char hour2 = '0' + (hour % 10);
+
+    char minute1 = '0' + (minute / 10);
+    char minute2 = '0' + (minute % 10);
+
+    display.setFont(TIME_FONT_XL);
+
+    drawCenteredDigit(
+        hour1,
+        HOUR1_X1, HOUR1_Y1,
+        HOUR1_X2, HOUR1_Y2
+    );
+
+    drawCenteredDigit(
+        hour2,
+        HOUR2_X1, HOUR2_Y1,
+        HOUR2_X2, HOUR2_Y2
+    );
+
+    drawCenteredDigit(
+        minute1,
+        MINUTE1_X1, MINUTE1_Y1,
+        MINUTE1_X2, MINUTE1_Y2
+    );
+
+    drawCenteredDigit(
+        minute2,
+        MINUTE2_X1, MINUTE2_Y1,
+        MINUTE2_X2, MINUTE2_Y2
+    );
+}
+
 void setup() {
     Serial.begin(115200);
 
@@ -185,22 +300,16 @@ void setup() {
     display.setFont(TIME_FONT_XL);
     display.setTextColor(GxEPD_BLACK);
 
-    // Draw Hello World
     display.setFullWindow();
-    // display.firstPage();
-
-    // do {
-    //     display.fillScreen(GxEPD_WHITE);
-    //     display.setCursor(0,15);
-    //     display.print("Hello World! This is Xavier Jenkins E-Ink Display!");
-    // } while (display.nextPage());
-
     drawDisplayBoarder();
-    drawCenteredDigit('1', HOUR1_X1, HOUR1_Y1, HOUR1_X2, HOUR1_Y2);
-    drawCenteredDigit('0', HOUR2_X1, HOUR2_Y1, HOUR2_X2, HOUR2_Y2);
-    drawCenteredDigit(':', 190, 25, 210, 225);
-    drawCenteredDigit('5', MINUTE1_X1, MINUTE1_Y1, MINUTE1_X2, MINUTE1_Y2);
-    drawCenteredDigit('6', MINUTE2_X1, MINUTE2_Y1, MINUTE2_X2, MINUTE2_Y2);
+
+    drawCenteredDigit(
+        ':',
+        COLON_X1, COLON_Y1,
+        COLON_X2, COLON_Y2
+    );
+
+
 
 
     Serial.println("ESP32 Ready!");
@@ -208,43 +317,81 @@ void setup() {
 
 void loop() {
 
+    // Read current date/time from RTC
     DateTime now = myRTC.now();
-    String currentTime =    String(now.day()) + "/" +
-                            String(now.month()) + "/" +
-                            String(now.year()) + " " +
-                            String(now.hour()) + ":" +
-                            String(now.minute()) + ":" +
-                            String(now.second());
 
-    Serial.println(currentTime);
+    // Only update the e-ink display when the minute changes
+    if (now.minute() != previousMinute) {
 
-    Serial.print(" Since midnight 1/1/1970 = ");
-    Serial.print(now.unixtime());
-    Serial.print("s = ");
-    Serial.print(now.unixtime() / 86400L);
-    Serial.println("d");
+        // =========================
+        // Draw current time
+        // =========================
 
+        display.setFont(TIME_FONT_XL);
+        drawTime(now);
 
-    // display.setFullWindow();
-    // display.firstPage();
-    // do {
-    //     display.fillScreen(GxEPD_WHITE);
-    //     display.setCursor(0,15);
-    //     display.print(currentTime);
-    // } while (display.nextPage());
+        // =========================
+        // Create current date string
+        // =========================
 
+        String currentDate =
+            String(days[now.dayOfTheWeek()]) + " " +
+            String(now.day()) + " " +
+            String(months[now.month() - 1]) + " " +
+            String(now.year());
+
+        // =========================
+        // Draw current date
+        // =========================
+
+        display.setFont(DATE_FONT);
+
+        drawCenteredText(
+            currentDate,
+            DATE_X1,
+            DATE_Y1,
+            DATE_X2,
+            DATE_Y2
+        );
+
+        // Remember which minute we just displayed
+        previousMinute = now.minute();
+
+        // Debug output
+        Serial.print("Display updated: ");
+        Serial.print(now.hour());
+        Serial.print(":");
+
+        if (now.minute() < 10) {
+            Serial.print("0");
+        }
+
+        Serial.println(now.minute());
+        Serial.println(currentDate);
+    }
+
+    // =========================
+    // SET button test
+    // =========================
 
     if (digitalRead(SET_BUTTON) == LOW) {
-        led.setPixelColor(0, led.Color(255, 0, 0)); // Red
+
+        led.setPixelColor(
+            0,
+            led.Color(255, 0, 0)
+        );
+
         led.show();
 
         Serial.println("SET button pressed");
-    } 
-    else {
+
+    } else {
+
         led.clear();
         led.show();
     }
 
-    delay(5000); // 5 seconds
+    // Check RTC approximately once per second
+    delay(1000);
 }
 
