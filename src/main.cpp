@@ -4,12 +4,13 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
+
 #include <InconsolataBold75pt7b.h>
+#include <InconsolataBold48pt7b.h>
+#include <InconsolataBold32pt7b.h>
 #include <InconsolataBold24pt7b.h>
 
-// =====================================================
-// PIN DEFINITIONS
-// =====================================================
+// ================= PIN DEFINITIONS ===============
 
 // Buttons
 #define PLUS_BUTTON 35
@@ -29,17 +30,15 @@
 #define EINK_BUSY_PIN 4
 
 
-// =====================================================
-// DISPLAY REGIONS
-// =====================================================
+// ================= DISPLAY REGIONS ===============
 
-// Hour digit 1
+// Left hour digit
 #define HOUR1_X1 20
 #define HOUR1_Y1 27
 #define HOUR1_X2 105
 #define HOUR1_Y2 223
 
-// Hour digit 2
+// Right hour digit
 #define HOUR2_X1 100
 #define HOUR2_Y1 27
 #define HOUR2_X2 178
@@ -51,42 +50,44 @@
 #define COLON_X2 222
 #define COLON_Y2 223
 
-// Minute digit 1
+// Left minute digit
 #define MINUTE1_X1 222
 #define MINUTE1_Y1 27
 #define MINUTE1_X2 300
 #define MINUTE1_Y2 223
 
-// Minute digit 2
+// Right minute digit
 #define MINUTE2_X1 295
 #define MINUTE2_Y1 27
 #define MINUTE2_X2 380
 #define MINUTE2_Y2 223
 
-// Date / setting-status area
+// Date / setting status
 #define DATE_X1 25
 #define DATE_Y1 228
 #define DATE_X2 375
 #define DATE_Y2 275
 
-// AM / PM area
+// AM / PM
 #define AMPM_X1 330
 #define AMPM_Y1 25
 #define AMPM_X2 375
 #define AMPM_Y2 60
 
+// Alarm indicator
+#define ALARM_STATUS_X1 25
+#define ALARM_STATUS_Y1 25
+#define ALARM_STATUS_X2 95
+#define ALARM_STATUS_Y2 60
 
-// =====================================================
-// FONTS
-// =====================================================
+
+// ================= FONTS ===============
 
 #define TIME_FONT_XL &inconsolata_bold75pt7b
 #define DATE_FONT &inconsolata_bold24pt7b
 
 
-// =====================================================
-// DATE NAMES
-// =====================================================
+// ================= DATE NAMES ===============
 
 const char* days[] = {
     "SUN",
@@ -114,71 +115,113 @@ const char* months[] = {
 };
 
 
-// =====================================================
-// CLOCK STATE
-// =====================================================
+// ================= CLOCK STATE ===============
 
 enum ClockMode {
     NORMAL_MODE,
+
     SET_HOUR_MODE,
-    SET_MINUTE_MODE
+    SET_MINUTE_MODE,
+    SET_DAY_MODE,
+    SET_MONTH_MODE,
+    SET_YEAR_MODE,
+
+    SET_ALARM_HOUR_MODE,
+    SET_ALARM_MINUTE_MODE
 };
 
 ClockMode clockMode = NORMAL_MODE;
 
+
+// ================= CLOCK SETTING VALUES ===============
+
 uint8_t settingHour = 0;
 uint8_t settingMinute = 0;
+uint8_t settingDay = 1;
+uint8_t settingMonth = 1;
+uint16_t settingYear = 2026;
+
+
+// ================= ALARM VALUES ===============
+
+uint8_t alarmHour = 7;
+uint8_t alarmMinute = 0;
+
+bool alarmEnabled = false;
+
+
+// ================= DISPLAY UPDATE STATE ===============
 
 uint8_t previousMinute = 255;
 
-
-// =====================================================
-// FULL REFRESH CONTROL
-// =====================================================
-
-// Full refresh every 3 minute changes
 const uint8_t FULL_REFRESH_INTERVAL = 3;
 
 uint8_t minuteUpdatesSinceFullRefresh = 0;
 
-// Forces a full refresh when the clock first starts
-// or after changing the RTC time.
 bool forceFullRefresh = true;
 
 
-// =====================================================
-// BUTTON DEBOUNCE
-// =====================================================
+// ================= BUTTON STATE ===============
 
 const unsigned long DEBOUNCE_DELAY = 40;
+const unsigned long LONG_PRESS_TIME = 3000;
 
-// SET
-bool lastSetReading = HIGH;
-bool stableSetState = HIGH;
-unsigned long lastSetDebounceTime = 0;
+struct ButtonState {
+    uint8_t pin;
 
-// PLUS
-bool lastPlusReading = HIGH;
-bool stablePlusState = HIGH;
-unsigned long lastPlusDebounceTime = 0;
+    bool lastReading;
+    bool stableState;
 
-// MINUS
-bool lastMinusReading = HIGH;
-bool stableMinusState = HIGH;
-unsigned long lastMinusDebounceTime = 0;
+    unsigned long lastDebounceTime;
+    unsigned long pressStartTime;
+
+    bool longPressTriggered;
+
+    bool shortPressed;
+    bool longPressed;
+};
+
+ButtonState setButton = {
+    SET_BUTTON,
+    HIGH,
+    HIGH,
+    0,
+    0,
+    false,
+    false,
+    false
+};
+
+ButtonState plusButton = {
+    PLUS_BUTTON,
+    HIGH,
+    HIGH,
+    0,
+    0,
+    false,
+    false,
+    false
+};
+
+ButtonState minusButton = {
+    MINUS_BUTTON,
+    HIGH,
+    HIGH,
+    0,
+    0,
+    false,
+    false,
+    false
+};
 
 
-// =====================================================
-// RTC
-// =====================================================
+// ================= RTC ===============
 
 RTClib myRTC;
 DS3231 rtcClock(Wire);
 
 
-// =====================================================
-// E-INK DISPLAY
-// =====================================================
+// ================= E-INK DISPLAY ===============
 
 GxEPD2_BW<
     GxEPD2_420_GDEY042T81,
@@ -193,9 +236,7 @@ GxEPD2_BW<
 );
 
 
-// =====================================================
-// TIME HELPERS
-// =====================================================
+// ================= TIME HELPERS ===============
 
 uint8_t to12Hour(uint8_t hour24) {
 
@@ -228,54 +269,113 @@ String getDateString(DateTime now) {
 }
 
 
-// =====================================================
-// BUTTON HELPER
-// =====================================================
+// ================= DATE HELPERS ===============
 
-bool buttonPressed(
-    uint8_t pin,
-    bool &lastReading,
-    bool &stableState,
-    unsigned long &lastDebounceTime
-) {
+bool isLeapYear(uint16_t year) {
 
-    bool reading = digitalRead(pin);
-
-    // The raw reading changed.
-    // Restart the debounce timer.
-    if (reading != lastReading) {
-        lastDebounceTime = millis();
+    if (year % 400 == 0) {
+        return true;
     }
 
-    bool pressed = false;
+    if (year % 100 == 0) {
+        return false;
+    }
 
-    // Only accept the new state after it has remained
-    // stable for the debounce period.
-    if ((millis() - lastDebounceTime) >= DEBOUNCE_DELAY) {
+    return year % 4 == 0;
+}
 
-        if (reading != stableState) {
 
-            stableState = reading;
+uint8_t daysInMonth(uint8_t month, uint16_t year) {
 
-            // INPUT_PULLUP means LOW = pressed
-            if (stableState == LOW) {
-                pressed = true;
+    switch (month) {
+
+        case 1:
+        case 3:
+        case 5:
+        case 7:
+        case 8:
+        case 10:
+        case 12:
+            return 31;
+
+        case 4:
+        case 6:
+        case 9:
+        case 11:
+            return 30;
+
+        case 2:
+            return isLeapYear(year) ? 29 : 28;
+    }
+
+    return 31;
+}
+
+
+void clampSettingDay() {
+
+    uint8_t maxDay =
+        daysInMonth(settingMonth, settingYear);
+
+    if (settingDay > maxDay) {
+        settingDay = maxDay;
+    }
+}
+
+
+// ================= BUTTON HANDLING ===============
+
+void updateButton(ButtonState &button) {
+
+    button.shortPressed = false;
+    button.longPressed = false;
+
+    bool reading = digitalRead(button.pin);
+
+    if (reading != button.lastReading) {
+        button.lastDebounceTime = millis();
+    }
+
+    if (
+        millis() - button.lastDebounceTime >=
+        DEBOUNCE_DELAY
+    ) {
+
+        if (reading != button.stableState) {
+
+            button.stableState = reading;
+
+            if (button.stableState == LOW) {
+
+                button.pressStartTime = millis();
+                button.longPressTriggered = false;
+            }
+
+            else {
+
+                if (!button.longPressTriggered) {
+                    button.shortPressed = true;
+                }
             }
         }
     }
 
-    lastReading = reading;
+    if (
+        button.stableState == LOW &&
+        !button.longPressTriggered &&
+        millis() - button.pressStartTime >=
+            LONG_PRESS_TIME
+    ) {
 
-    return pressed;
+        button.longPressed = true;
+        button.longPressTriggered = true;
+    }
+
+    button.lastReading = reading;
 }
 
 
-// =====================================================
-// LOW-LEVEL DRAWING FUNCTIONS
-//
-// These only draw into the CURRENT display buffer.
-// They do not initiate their own refresh.
-// =====================================================
+// ================= DRAWING HELPERS ===============
 
 void drawCenteredDigitToBuffer(
     char digit,
@@ -350,64 +450,6 @@ void drawCenteredTextToBuffer(
     display.print(text);
 }
 
-
-void drawBordersToBuffer() {
-
-    // Outer borders
-    display.drawLine(0, 25, 400, 25, GxEPD_BLACK);
-    display.drawLine(0, 275, 400, 275, GxEPD_BLACK);
-    display.drawLine(25, 0, 25, 300, GxEPD_BLACK);
-    display.drawLine(375, 0, 375, 300, GxEPD_BLACK);
-
-    // Horizontal dotted separator
-    for (int x = 25; x < 375; x += 5) {
-        display.drawLine(
-            x,
-            225,
-            x + 2,
-            225,
-            GxEPD_BLACK
-        );
-    }
-
-    // Middle dotted line
-    for (int y = 25; y < 225; y += 5) {
-        display.drawLine(
-            200,
-            y,
-            200,
-            y + 2,
-            GxEPD_BLACK
-        );
-    }
-
-    // Minute separator
-    for (int y = 25; y < 225; y += 5) {
-        display.drawLine(
-            288,
-            y,
-            288,
-            y + 2,
-            GxEPD_BLACK
-        );
-    }
-
-    // Hour separator
-    for (int y = 25; y < 225; y += 5) {
-        display.drawLine(
-            112,
-            y,
-            112,
-            y + 2,
-            GxEPD_BLACK
-        );
-    }
-}
-
-
-// =====================================================
-// PARTIAL REFRESH FUNCTIONS
-// =====================================================
 
 void drawCenteredDigit(
     char digit,
@@ -526,9 +568,75 @@ void drawCenteredText(
 }
 
 
-// =====================================================
-// TIME DRAWING
-// =====================================================
+// ================= BORDER DRAWING ===============
+
+void drawBordersToBuffer() {
+
+    display.drawLine(
+        0, 25,
+        400, 25,
+        GxEPD_BLACK
+    );
+
+    display.drawLine(
+        0, 275,
+        400, 275,
+        GxEPD_BLACK
+    );
+
+    display.drawLine(
+        25, 0,
+        25, 300,
+        GxEPD_BLACK
+    );
+
+    display.drawLine(
+        375, 0,
+        375, 300,
+        GxEPD_BLACK
+    );
+
+    for (int x = 25; x < 375; x += 5) {
+
+        display.drawLine(
+            x,
+            225,
+            x + 2,
+            225,
+            GxEPD_BLACK
+        );
+    }
+
+    for (int y = 25; y < 225; y += 5) {
+
+        display.drawLine(
+            200,
+            y,
+            200,
+            y + 2,
+            GxEPD_BLACK
+        );
+
+        display.drawLine(
+            288,
+            y,
+            288,
+            y + 2,
+            GxEPD_BLACK
+        );
+
+        display.drawLine(
+            112,
+            y,
+            112,
+            y + 2,
+            GxEPD_BLACK
+        );
+    }
+}
+
+
+// ================= TIME DRAWING ===============
 
 void drawHourValues(uint8_t hour24) {
 
@@ -555,7 +663,6 @@ void drawHourValues(uint8_t hour24) {
         HOUR2_Y2
     );
 
-    // AM / PM may also change when adjusting hour
     display.setFont(DATE_FONT);
 
     drawCenteredText(
@@ -570,8 +677,11 @@ void drawHourValues(uint8_t hour24) {
 
 void drawMinuteValues(uint8_t minute) {
 
-    char minute1 = '0' + (minute / 10);
-    char minute2 = '0' + (minute % 10);
+    char minute1 =
+        '0' + (minute / 10);
+
+    char minute2 =
+        '0' + (minute % 10);
 
     display.setFont(TIME_FONT_XL);
 
@@ -594,11 +704,11 @@ void drawMinuteValues(uint8_t minute) {
 
 
 void drawTimeValues(
-    uint8_t hour24,
+    uint8_t hour,
     uint8_t minute
 ) {
 
-    drawHourValues(hour24);
+    drawHourValues(hour);
     drawMinuteValues(minute);
 }
 
@@ -612,28 +722,34 @@ void drawTime(DateTime now) {
 }
 
 
-// =====================================================
-// NORMAL PARTIAL CLOCK UPDATE
-// =====================================================
+// ================= ALARM DISPLAY ===============
 
-void drawNormalPartial(DateTime now) {
-
-    display.setFont(TIME_FONT_XL);
-
-    drawTime(now);
+void drawAlarmStatus() {
 
     display.setFont(DATE_FONT);
 
     drawCenteredText(
-        getAmPm(now.hour()),
-        AMPM_X1,
-        AMPM_Y1,
-        AMPM_X2,
-        AMPM_Y2
+        alarmEnabled ? "A1" : "",
+        ALARM_STATUS_X1,
+        ALARM_STATUS_Y1,
+        ALARM_STATUS_X2,
+        ALARM_STATUS_Y2
     );
+}
+
+
+// ================= SETTING LABELS ===============
+
+void drawSetDayLabel() {
+
+    display.setFont(DATE_FONT);
+
+    String text =
+        "SET DAY " +
+        String(settingDay);
 
     drawCenteredText(
-        getDateString(now),
+        text,
         DATE_X1,
         DATE_Y1,
         DATE_X2,
@@ -642,19 +758,60 @@ void drawNormalPartial(DateTime now) {
 }
 
 
-// =====================================================
-// FULL SCREEN REFRESH
-// =====================================================
+void drawSetMonthLabel() {
+
+    display.setFont(DATE_FONT);
+
+    String text =
+        "SET MONTH " +
+        String(months[settingMonth - 1]);
+
+    drawCenteredText(
+        text,
+        DATE_X1,
+        DATE_Y1,
+        DATE_X2,
+        DATE_Y2
+    );
+}
+
+
+void drawSetYearLabel() {
+
+    display.setFont(DATE_FONT);
+
+    String text =
+        "SET YEAR " +
+        String(settingYear);
+
+    drawCenteredText(
+        text,
+        DATE_X1,
+        DATE_Y1,
+        DATE_X2,
+        DATE_Y2
+    );
+}
+
+
+// ================= FULL SCREEN DRAWING ===============
 
 void drawFullScreen(DateTime now) {
 
-    uint8_t hour12 = to12Hour(now.hour());
+    uint8_t hour12 =
+        to12Hour(now.hour());
 
-    char hour1 = '0' + (hour12 / 10);
-    char hour2 = '0' + (hour12 % 10);
+    char hour1 =
+        '0' + (hour12 / 10);
 
-    char minute1 = '0' + (now.minute() / 10);
-    char minute2 = '0' + (now.minute() % 10);
+    char hour2 =
+        '0' + (hour12 % 10);
+
+    char minute1 =
+        '0' + (now.minute() / 10);
+
+    char minute2 =
+        '0' + (now.minute() % 10);
 
     display.setFullWindow();
 
@@ -662,15 +819,9 @@ void drawFullScreen(DateTime now) {
 
     do {
 
-        // Completely clear the screen
         display.fillScreen(GxEPD_WHITE);
 
-        // Borders
         drawBordersToBuffer();
-
-        // -------------------------
-        // Large time
-        // -------------------------
 
         display.setFont(TIME_FONT_XL);
 
@@ -714,10 +865,6 @@ void drawFullScreen(DateTime now) {
             MINUTE2_Y2
         );
 
-        // -------------------------
-        // AM / PM and date
-        // -------------------------
-
         display.setFont(DATE_FONT);
 
         drawCenteredTextToBuffer(
@@ -736,32 +883,192 @@ void drawFullScreen(DateTime now) {
             DATE_Y2
         );
 
+        if (alarmEnabled) {
+
+            drawCenteredTextToBuffer(
+                "A1",
+                ALARM_STATUS_X1,
+                ALARM_STATUS_Y1,
+                ALARM_STATUS_X2,
+                ALARM_STATUS_Y2
+            );
+        }
+
     } while (display.nextPage());
 
     Serial.println("FULL DISPLAY REFRESH");
 }
 
 
-// =====================================================
-// SETUP
-// =====================================================
+// ================= NORMAL PARTIAL UPDATE ===============
+
+void drawNormalPartial(DateTime now) {
+
+    drawTime(now);
+
+    display.setFont(DATE_FONT);
+
+    drawCenteredText(
+        getDateString(now),
+        DATE_X1,
+        DATE_Y1,
+        DATE_X2,
+        DATE_Y2
+    );
+
+    drawAlarmStatus();
+}
+
+
+// ================= ALARM RTC HELPERS ===============
+
+void loadAlarmFromRTC() {
+
+    byte alarmDay = 0;
+    byte hour = 0;
+    byte minute = 0;
+    byte second = 0;
+    byte alarmBits = 0;
+
+    bool alarmByDay = false;
+    bool alarm12Hour = false;
+    bool alarmPM = false;
+
+    rtcClock.getA1Time(
+        alarmDay,
+        hour,
+        minute,
+        second,
+        alarmBits,
+        alarmByDay,
+        alarm12Hour,
+        alarmPM,
+        true
+    );
+
+    if (alarm12Hour) {
+
+        if (hour == 12) {
+            hour = 0;
+        }
+
+        if (alarmPM) {
+            hour += 12;
+        }
+    }
+
+    if (
+        hour <= 23 &&
+        minute <= 59
+    ) {
+
+        alarmHour = hour;
+        alarmMinute = minute;
+    }
+
+    else {
+
+        alarmHour = 7;
+        alarmMinute = 0;
+    }
+
+    alarmEnabled =
+        rtcClock.checkAlarmEnabled(1);
+}
+
+
+void saveAlarmToRTC() {
+
+    rtcClock.setAlarm1Simple(
+        alarmHour,
+        alarmMinute
+    );
+
+    if (alarmEnabled) {
+
+        rtcClock.turnOnAlarm(1);
+    }
+
+    else {
+
+        rtcClock.turnOffAlarm(1);
+    }
+
+    rtcClock.checkIfAlarm(1);
+
+    Serial.print("Alarm time saved: ");
+    Serial.print(to12Hour(alarmHour));
+    Serial.print(":");
+
+    if (alarmMinute < 10) {
+        Serial.print("0");
+    }
+
+    Serial.print(alarmMinute);
+    Serial.print(" ");
+    Serial.println(getAmPm(alarmHour));
+}
+
+
+// ================= MODE ENTRY HELPERS ===============
+
+void enterClockSetting(DateTime now) {
+
+    settingHour = now.hour();
+    settingMinute = now.minute();
+    settingDay = now.day();
+    settingMonth = now.month();
+    settingYear = now.year();
+
+    clockMode = SET_HOUR_MODE;
+
+    display.setFont(DATE_FONT);
+
+    drawCenteredText(
+        "SET HOUR",
+        DATE_X1,
+        DATE_Y1,
+        DATE_X2,
+        DATE_Y2
+    );
+
+    Serial.println("SET HOUR MODE");
+}
+
+
+void enterAlarmSetting() {
+
+    clockMode = SET_ALARM_HOUR_MODE;
+
+    drawTimeValues(
+        alarmHour,
+        alarmMinute
+    );
+
+    display.setFont(DATE_FONT);
+
+    drawCenteredText(
+        "SET ALM HR",
+        DATE_X1,
+        DATE_Y1,
+        DATE_X2,
+        DATE_Y2
+    );
+
+    Serial.println("SET ALARM HOUR MODE");
+}
+
+
+// ================= SETUP ===============
 
 void setup() {
 
     Serial.begin(115200);
 
-    // -------------------------
-    // I2C
-    // -------------------------
-
     Wire.begin(
         SDA_PIN,
         SCL_PIN
     );
-
-    // -------------------------
-    // SPI
-    // -------------------------
 
     SPI.begin(
         EINK_SCK_SCL_PIN,
@@ -769,10 +1076,6 @@ void setup() {
         EINK_MOSI_SDA_PIN,
         EINK_CS_PIN
     );
-
-    // -------------------------
-    // Buttons
-    // -------------------------
 
     pinMode(
         PLUS_BUTTON,
@@ -788,10 +1091,6 @@ void setup() {
         SET_BUTTON,
         INPUT_PULLUP
     );
-
-    // -------------------------
-    // Display
-    // -------------------------
 
     display.init(115200);
 
@@ -801,62 +1100,33 @@ void setup() {
         GxEPD_BLACK
     );
 
+    loadAlarmFromRTC();
+
     Serial.println("ESP32 Ready!");
 }
 
 
-// =====================================================
-// LOOP
-// =====================================================
+// ================= LOOP ===============
 
 void loop() {
 
     DateTime now = myRTC.now();
 
-
-    // =================================================
-    // READ / DEBOUNCE BUTTONS
-    // =================================================
-
-    bool setPressed = buttonPressed(
-        SET_BUTTON,
-        lastSetReading,
-        stableSetState,
-        lastSetDebounceTime
-    );
-
-    bool plusPressed = buttonPressed(
-        PLUS_BUTTON,
-        lastPlusReading,
-        stablePlusState,
-        lastPlusDebounceTime
-    );
-
-    bool minusPressed = buttonPressed(
-        MINUS_BUTTON,
-        lastMinusReading,
-        stableMinusState,
-        lastMinusDebounceTime
-    );
+    updateButton(setButton);
+    updateButton(plusButton);
+    updateButton(minusButton);
 
 
-    // =================================================
-    // NORMAL MODE
-    // =================================================
+    // ================= NORMAL MODE ===============
 
     if (clockMode == NORMAL_MODE) {
 
-        // Only update when minute changes
         if (now.minute() != previousMinute) {
-
-            // -----------------------------------------
-            // Full refresh every 3 minute changes
-            // -----------------------------------------
 
             if (
                 forceFullRefresh ||
                 minuteUpdatesSinceFullRefresh >=
-                    (FULL_REFRESH_INTERVAL - 1)
+                    FULL_REFRESH_INTERVAL - 1
             ) {
 
                 drawFullScreen(now);
@@ -865,10 +1135,6 @@ void loop() {
                 forceFullRefresh = false;
             }
 
-            // -----------------------------------------
-            // Otherwise partial update
-            // -----------------------------------------
-
             else {
 
                 drawNormalPartial(now);
@@ -876,60 +1142,61 @@ void loop() {
                 minuteUpdatesSinceFullRefresh++;
             }
 
-            previousMinute = now.minute();
-
-
-            Serial.print("Display updated: ");
-            Serial.print(to12Hour(now.hour()));
-            Serial.print(":");
-
-            if (now.minute() < 10) {
-                Serial.print("0");
-            }
-
-            Serial.print(now.minute());
-            Serial.print(" ");
-            Serial.println(getAmPm(now.hour()));
+            previousMinute =
+                now.minute();
         }
 
 
-        // -----------------------------------------
-        // Enter SET HOUR mode
-        // -----------------------------------------
+        // ================= LONG SET - CLOCK SETTINGS ===============
 
-        if (setPressed) {
+        if (setButton.longPressed) {
 
-            settingHour = now.hour();
-            settingMinute = now.minute();
+            enterClockSetting(now);
+        }
 
-            clockMode = SET_HOUR_MODE;
 
-            display.setFont(DATE_FONT);
+        // ================= LONG PLUS - ALARM SETTINGS ===============
 
-            drawCenteredText(
-                "SET HOUR",
-                DATE_X1,
-                DATE_Y1,
-                DATE_X2,
-                DATE_Y2
-            );
+        else if (plusButton.longPressed) {
 
-            Serial.println("SET HOUR MODE");
+            enterAlarmSetting();
+        }
+
+
+        // ================= LONG MINUS - TOGGLE ALARM ===============
+
+        else if (minusButton.longPressed) {
+
+            alarmEnabled = !alarmEnabled;
+
+            if (alarmEnabled) {
+
+                rtcClock.turnOnAlarm(1);
+
+                Serial.println(
+                    "ALARM 1 ENABLED"
+                );
+            }
+
+            else {
+
+                rtcClock.turnOffAlarm(1);
+
+                Serial.println(
+                    "ALARM 1 DISABLED"
+                );
+            }
+
+            drawAlarmStatus();
         }
     }
 
 
-    // =================================================
-    // SET HOUR MODE
-    // =================================================
+    // ================= SET HOUR MODE ===============
 
     else if (clockMode == SET_HOUR_MODE) {
 
-        // -----------------------------------------
-        // Increase hour
-        // -----------------------------------------
-
-        if (plusPressed) {
+        if (plusButton.shortPressed) {
 
             settingHour++;
 
@@ -937,46 +1204,30 @@ void loop() {
                 settingHour = 0;
             }
 
-            // Only redraw the hour + AM/PM,
-            // not all four digits.
-            drawHourValues(settingHour);
-
-            Serial.print("Setting hour: ");
-            Serial.print(to12Hour(settingHour));
-            Serial.print(" ");
-            Serial.println(getAmPm(settingHour));
+            drawHourValues(
+                settingHour
+            );
         }
 
-
-        // -----------------------------------------
-        // Decrease hour
-        // -----------------------------------------
-
-        if (minusPressed) {
+        if (minusButton.shortPressed) {
 
             if (settingHour == 0) {
                 settingHour = 23;
             }
+
             else {
                 settingHour--;
             }
 
-            drawHourValues(settingHour);
-
-            Serial.print("Setting hour: ");
-            Serial.print(to12Hour(settingHour));
-            Serial.print(" ");
-            Serial.println(getAmPm(settingHour));
+            drawHourValues(
+                settingHour
+            );
         }
 
+        if (setButton.shortPressed) {
 
-        // -----------------------------------------
-        // Move to SET MINUTE mode
-        // -----------------------------------------
-
-        if (setPressed) {
-
-            clockMode = SET_MINUTE_MODE;
+            clockMode =
+                SET_MINUTE_MODE;
 
             display.setFont(DATE_FONT);
 
@@ -987,23 +1238,15 @@ void loop() {
                 DATE_X2,
                 DATE_Y2
             );
-
-            Serial.println("SET MINUTE MODE");
         }
     }
 
 
-    // =================================================
-    // SET MINUTE MODE
-    // =================================================
+    // ================= SET MINUTE MODE ===============
 
     else if (clockMode == SET_MINUTE_MODE) {
 
-        // -----------------------------------------
-        // Increase minute
-        // -----------------------------------------
-
-        if (plusPressed) {
+        if (plusButton.shortPressed) {
 
             settingMinute++;
 
@@ -1011,67 +1254,303 @@ void loop() {
                 settingMinute = 0;
             }
 
-            // Only redraw minute digits
-            drawMinuteValues(settingMinute);
-
-            Serial.print("Setting minute: ");
-            Serial.println(settingMinute);
+            drawMinuteValues(
+                settingMinute
+            );
         }
 
-
-        // -----------------------------------------
-        // Decrease minute
-        // -----------------------------------------
-
-        if (minusPressed) {
+        if (minusButton.shortPressed) {
 
             if (settingMinute == 0) {
                 settingMinute = 59;
             }
+
             else {
                 settingMinute--;
             }
 
-            drawMinuteValues(settingMinute);
-
-            Serial.print("Setting minute: ");
-            Serial.println(settingMinute);
+            drawMinuteValues(
+                settingMinute
+            );
         }
 
+        if (setButton.shortPressed) {
 
-        // -----------------------------------------
-        // Save time
-        // -----------------------------------------
+            clockMode =
+                SET_DAY_MODE;
 
-        if (setPressed) {
+            drawSetDayLabel();
+        }
+    }
+
+
+    // ================= SET DAY MODE ===============
+
+    else if (clockMode == SET_DAY_MODE) {
+
+        uint8_t maxDay =
+            daysInMonth(
+                settingMonth,
+                settingYear
+            );
+
+        if (plusButton.shortPressed) {
+
+            settingDay++;
+
+            if (settingDay > maxDay) {
+                settingDay = 1;
+            }
+
+            drawSetDayLabel();
+        }
+
+        if (minusButton.shortPressed) {
+
+            if (settingDay <= 1) {
+                settingDay = maxDay;
+            }
+
+            else {
+                settingDay--;
+            }
+
+            drawSetDayLabel();
+        }
+
+        if (setButton.shortPressed) {
+
+            clockMode =
+                SET_MONTH_MODE;
+
+            drawSetMonthLabel();
+        }
+    }
+
+
+    // ================= SET MONTH MODE ===============
+
+    else if (clockMode == SET_MONTH_MODE) {
+
+        if (plusButton.shortPressed) {
+
+            settingMonth++;
+
+            if (settingMonth > 12) {
+                settingMonth = 1;
+            }
+
+            clampSettingDay();
+
+            drawSetMonthLabel();
+        }
+
+        if (minusButton.shortPressed) {
+
+            if (settingMonth <= 1) {
+                settingMonth = 12;
+            }
+
+            else {
+                settingMonth--;
+            }
+
+            clampSettingDay();
+
+            drawSetMonthLabel();
+        }
+
+        if (setButton.shortPressed) {
+
+            clockMode =
+                SET_YEAR_MODE;
+
+            drawSetYearLabel();
+        }
+    }
+
+
+    // ================= SET YEAR MODE ===============
+
+    else if (clockMode == SET_YEAR_MODE) {
+
+        if (plusButton.shortPressed) {
+
+            settingYear++;
+
+            if (settingYear > 2099) {
+                settingYear = 2000;
+            }
+
+            clampSettingDay();
+
+            drawSetYearLabel();
+        }
+
+        if (minusButton.shortPressed) {
+
+            if (settingYear <= 2000) {
+                settingYear = 2099;
+            }
+
+            else {
+                settingYear--;
+            }
+
+            clampSettingDay();
+
+            drawSetYearLabel();
+        }
+
+        if (setButton.shortPressed) {
 
             DateTime newTime(
-                now.year(),
-                now.month(),
-                now.day(),
+                settingYear,
+                settingMonth,
+                settingDay,
                 settingHour,
                 settingMinute,
                 0
             );
 
-            rtcClock.adjust(newTime);
+            rtcClock.adjust(
+                newTime
+            );
 
-            clockMode = NORMAL_MODE;
+            clockMode =
+                NORMAL_MODE;
 
-            // Force the next normal update
             previousMinute = 255;
 
-            // Do a complete refresh after setting
-            // the clock so SET MIN disappears and
-            // any accumulated ghosting is cleared.
             forceFullRefresh = true;
 
-            Serial.println("TIME SAVED");
+            Serial.println(
+                "CLOCK / DATE SAVED"
+            );
         }
     }
 
 
-    // Fast loop is okay now because the buttons
-    // are debounced using millis().
+    // ================= SET ALARM HOUR MODE ===============
+
+    else if (
+        clockMode ==
+        SET_ALARM_HOUR_MODE
+    ) {
+
+        if (plusButton.shortPressed) {
+
+            alarmHour++;
+
+            if (alarmHour > 23) {
+                alarmHour = 0;
+            }
+
+            drawHourValues(
+                alarmHour
+            );
+        }
+
+        if (minusButton.shortPressed) {
+
+            if (alarmHour == 0) {
+                alarmHour = 23;
+            }
+
+            else {
+                alarmHour--;
+            }
+
+            drawHourValues(
+                alarmHour
+            );
+        }
+
+        if (setButton.shortPressed) {
+
+            clockMode =
+                SET_ALARM_MINUTE_MODE;
+
+            display.setFont(
+                DATE_FONT
+            );
+
+            drawCenteredText(
+                "SET ALM MIN",
+                DATE_X1,
+                DATE_Y1,
+                DATE_X2,
+                DATE_Y2
+            );
+        }
+    }
+
+
+    // ================= SET ALARM MINUTE MODE ===============
+
+    else if (
+        clockMode ==
+        SET_ALARM_MINUTE_MODE
+    ) {
+
+        if (plusButton.shortPressed) {
+
+            alarmMinute++;
+
+            if (alarmMinute > 59) {
+                alarmMinute = 0;
+            }
+
+            drawMinuteValues(
+                alarmMinute
+            );
+        }
+
+        if (minusButton.shortPressed) {
+
+            if (alarmMinute == 0) {
+                alarmMinute = 59;
+            }
+
+            else {
+                alarmMinute--;
+            }
+
+            drawMinuteValues(
+                alarmMinute
+            );
+        }
+
+        if (setButton.shortPressed) {
+
+            saveAlarmToRTC();
+
+            clockMode =
+                NORMAL_MODE;
+
+            previousMinute = 255;
+
+            forceFullRefresh = true;
+
+            Serial.println(
+                "ALARM TIME SAVED"
+            );
+        }
+    }
+
+
+    // ================= ALARM TRIGGER CHECK ===============
+
+    if (rtcClock.checkIfAlarm(1)) {
+
+        Serial.println(
+            "ALARM 1 TRIGGERED!"
+        );
+
+        // Later:
+        // start audio playback here.
+    }
+
+
     delay(5);
 }
