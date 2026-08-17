@@ -11,7 +11,9 @@
 #include <InconsolataBold75pt7b.h>
 #include <InconsolataBold24pt7b.h>
 
-// ================= PIN DEFINITIONS ===============
+// ============================================================
+// PIN DEFINITIONS
+// ============================================================
 
 // Buttons
 #define PLUS_BUTTON 35
@@ -34,16 +36,26 @@
 #define EINK_RES_PIN 5
 #define EINK_BUSY_PIN 4
 
-// MAX98357A I2S
+// MAX98357A
 #define I2S_BCLK 12
 #define I2S_LRC 13
 #define I2S_DOUT 14
 
-// PN532 - not physically connected
+// LoRa
+#define LORA_DIO0 42
+#define LORA_RST 41
+#define LORA_CS 40
+#define LORA_SCK 39
+#define LORA_MOSI 38
+#define LORA_MISO 18
+
+// PN532 - IRQ/reset not physically connected
 #define PN532_IRQ -1
 #define PN532_RESET -1
 
-// ================= DISPLAY REGIONS ===============
+// ============================================================
+// DISPLAY REGIONS
+// ============================================================
 
 #define HOUR1_X1 20
 #define HOUR1_Y1 27
@@ -85,12 +97,22 @@
 #define ALARM_STATUS_X2 95
 #define ALARM_STATUS_Y2 60
 
-// ================= FONTS ===============
+// Seconds progress bar
+#define SECOND_BAR_X 25
+#define SECOND_BAR_Y 285
+#define SECOND_BAR_WIDTH 350
+#define SECOND_BAR_HEIGHT 10
+
+// ============================================================
+// FONTS
+// ============================================================
 
 #define TIME_FONT_XL &inconsolata_bold75pt7b
 #define DATE_FONT &inconsolata_bold24pt7b
 
-// ================= DATE NAMES ===============
+// ============================================================
+// DATE NAMES
+// ============================================================
 
 const char* days[] = {
     "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"
@@ -101,7 +123,9 @@ const char* months[] = {
     "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
 };
 
-// ================= CLOCK STATE ===============
+// ============================================================
+// CLOCK STATE
+// ============================================================
 
 enum ClockMode {
     NORMAL_MODE,
@@ -116,15 +140,15 @@ enum ClockMode {
 
 ClockMode clockMode = NORMAL_MODE;
 
-// ================= CLOCK SETTING VALUES ===============
-
 uint8_t settingHour = 0;
 uint8_t settingMinute = 0;
 uint8_t settingDay = 1;
 uint8_t settingMonth = 1;
 uint16_t settingYear = 2026;
 
-// ================= ALARM VALUES ===============
+// ============================================================
+// ALARM STATE
+// ============================================================
 
 uint8_t alarmHour = 7;
 uint8_t alarmMinute = 0;
@@ -132,62 +156,27 @@ uint8_t alarmMinute = 0;
 bool alarmEnabled = false;
 bool alarmRinging = false;
 
-// ================= RTC ===============
-
-// RTC uses built-in I2C controller 0.
-DS3231 rtcClock(Wire);
-
-// ================= PN532 / RFID ===============
-
-// PN532 uses built-in I2C controller 1.
-Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET, &Wire1);
-
-bool nfcReady = false;
-
-const uint8_t ALLOWED_UID_1[] = {
-    0x89, 0xE1, 0x8C, 0x29
-};
-
-const uint8_t ALLOWED_UID_2[] = {
-    0x50, 0x1F, 0xF8, 0x5C
-};
-
-unsigned long lastNfcPollMillis = 0;
-const unsigned long NFC_POLL_INTERVAL = 100;
-
-// ================= ALARM BEEP ===============
-
-const unsigned long BEEP_INTERVAL = 500;
-const int BEEP_FREQUENCY = 1000;
-const int BEEP_AMPLITUDE = 12000;
-const int AUDIO_SAMPLE_RATE = 16000;
-
-bool beepOn = false;
-unsigned long previousBeepMillis = 0;
-
-// ================= I2S STATE ===============
-
-i2s_chan_handle_t i2sTxChannel = nullptr;
-
-bool audioReady = false;
-bool i2sEnabled = false;
-
-// ================= DISPLAY UPDATE STATE ===============
+// ============================================================
+// DISPLAY UPDATE STATE
+// ============================================================
 
 uint8_t previousMinute = 255;
+uint8_t previousSecond = 255;
 
 const uint8_t FULL_REFRESH_INTERVAL = 3;
+
 uint8_t minuteUpdatesSinceFullRefresh = 0;
 
 bool forceFullRefresh = true;
 
-// Deferred e-ink update while rapidly pressing buttons
 bool settingDisplayDirty = false;
 unsigned long lastSettingInputMillis = 0;
 
 const unsigned long SETTING_DISPLAY_DELAY = 300;
 
-// ================= BUTTON STATE ===============
+// ============================================================
+// BUTTON STATE
+// ============================================================
 
 const unsigned long DEBOUNCE_DELAY = 40;
 const unsigned long LONG_PRESS_TIME = 3000;
@@ -215,7 +204,93 @@ ButtonState minusButton = {
     MINUS_BUTTON, HIGH, HIGH, 0, 0, false, false, false
 };
 
-// ================= E-INK DISPLAY ===============
+// ============================================================
+// RTC
+// ============================================================
+
+DS3231 rtcClock(Wire);
+
+// ============================================================
+// PN532
+// ============================================================
+
+Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET, &Wire1);
+
+bool nfcReady = false;
+
+const uint8_t ALLOWED_UID_1[] = {
+    0x89, 0xE1, 0x8C, 0x29
+};
+
+const uint8_t ALLOWED_UID_2[] = {
+    0x50, 0x1F, 0xF8, 0x5C
+};
+
+unsigned long lastNfcPollMillis = 0;
+
+const unsigned long NFC_POLL_INTERVAL = 100;
+
+// ============================================================
+// AUDIO
+// ============================================================
+
+const unsigned long BEEP_INTERVAL = 500;
+
+const int BEEP_FREQUENCY = 1000;
+const int BEEP_AMPLITUDE = 12000;
+const int AUDIO_SAMPLE_RATE = 16000;
+
+bool beepOn = false;
+
+unsigned long previousBeepMillis = 0;
+
+i2s_chan_handle_t i2sTxChannel = nullptr;
+
+bool audioReady = false;
+bool i2sEnabled = false;
+
+// ============================================================
+// LORA REGISTERS
+// ============================================================
+
+#define REG_FIFO                 0x00
+#define REG_OP_MODE              0x01
+#define REG_FRF_MSB              0x06
+#define REG_FRF_MID              0x07
+#define REG_FRF_LSB              0x08
+#define REG_PA_CONFIG            0x09
+#define REG_FIFO_ADDR_PTR        0x0D
+#define REG_FIFO_TX_BASE_ADDR    0x0E
+#define REG_FIFO_RX_BASE_ADDR    0x0F
+#define REG_FIFO_RX_CURRENT_ADDR 0x10
+#define REG_IRQ_FLAGS            0x12
+#define REG_RX_NB_BYTES          0x13
+#define REG_RSSI_VALUE           0x1B
+#define REG_MODEM_CONFIG_1       0x1D
+#define REG_MODEM_CONFIG_2       0x1E
+#define REG_PREAMBLE_MSB         0x20
+#define REG_PREAMBLE_LSB         0x21
+#define REG_PAYLOAD_LENGTH       0x22
+#define REG_MODEM_CONFIG_3       0x26
+#define REG_DIO_MAPPING_1        0x40
+#define REG_VERSION              0x42
+#define REG_PA_DAC               0x4D
+
+#define MODE_LONG_RANGE_MODE     0x80
+#define MODE_SLEEP               0x00
+#define MODE_STDBY               0x01
+#define MODE_TX                  0x03
+#define MODE_RX_CONTINUOUS       0x05
+
+#define IRQ_TX_DONE_MASK         0x08
+#define IRQ_RX_DONE_MASK         0x40
+#define IRQ_PAYLOAD_CRC_ERROR    0x20
+
+bool loraReady = false;
+
+// ============================================================
+// DISPLAY
+// ============================================================
 
 GxEPD2_BW<
     GxEPD2_420_GDEY042T81,
@@ -229,7 +304,9 @@ GxEPD2_BW<
     )
 );
 
-// ================= TIME HELPERS ===============
+// ============================================================
+// TIME HELPERS
+// ============================================================
 
 uint8_t to12Hour(uint8_t hour24) {
     uint8_t hour12 = hour24 % 12;
@@ -252,7 +329,9 @@ String getDateString(DateTime now) {
            String(now.year());
 }
 
-// ================= DATE HELPERS ===============
+// ============================================================
+// DATE HELPERS
+// ============================================================
 
 bool isLeapYear(uint16_t year) {
     if (year % 400 == 0) {
@@ -298,59 +377,11 @@ void clampSettingDay() {
     }
 }
 
-// ================= RFID HELPERS ===============
+// ============================================================
+// BUTTON HANDLING
+// ============================================================
 
-bool uidMatches(
-    const uint8_t* uid,
-    uint8_t uidLength,
-    const uint8_t* allowedUid,
-    uint8_t allowedLength
-) {
-    if (uidLength != allowedLength) {
-        return false;
-    }
-
-    for (uint8_t i = 0; i < uidLength; i++) {
-        if (uid[i] != allowedUid[i]) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool isAllowedCard(const uint8_t* uid, uint8_t uidLength) {
-    return uidMatches(
-        uid,
-        uidLength,
-        ALLOWED_UID_1,
-        sizeof(ALLOWED_UID_1)
-    ) ||
-    uidMatches(
-        uid,
-        uidLength,
-        ALLOWED_UID_2,
-        sizeof(ALLOWED_UID_2)
-    );
-}
-
-void printUid(const uint8_t* uid, uint8_t uidLength) {
-    for (uint8_t i = 0; i < uidLength; i++) {
-        if (uid[i] < 0x10) {
-            Serial.print("0");
-        }
-
-        Serial.print(uid[i], HEX);
-
-        if (i < uidLength - 1) {
-            Serial.print(":");
-        }
-    }
-}
-
-// ================= BUTTON HANDLING ===============
-
-void updateButton(ButtonState &button) {
+void updateButton(ButtonState& button) {
     button.shortPressed = false;
     button.longPressed = false;
 
@@ -390,7 +421,9 @@ void markSettingDisplayDirty() {
     lastSettingInputMillis = millis();
 }
 
-// ================= DRAWING HELPERS ===============
+// ============================================================
+// DRAWING HELPERS
+// ============================================================
 
 void drawCenteredDigitToBuffer(char digit, int x1, int y1, int x2, int y2) {
     int16_t textX, textY;
@@ -458,7 +491,7 @@ void drawCenteredDigit(char digit, int x1, int y1, int x2, int y2) {
     int actualX = cursorX + textX;
     int actualY = cursorY + textY;
 
-    int padding = 2;
+    const int padding = 2;
 
     display.setPartialWindow(
         actualX - padding,
@@ -509,7 +542,83 @@ void drawCenteredText(String text, int x1, int y1, int x2, int y2) {
     } while (display.nextPage());
 }
 
-// ================= BORDER DRAWING ===============
+// ============================================================
+// SECOND BAR
+// ============================================================
+
+void drawSecondBarToBuffer(uint8_t second) {
+    int filledWidth = map(
+        second,
+        0,
+        59,
+        0,
+        SECOND_BAR_WIDTH
+    );
+
+    display.drawRect(
+        SECOND_BAR_X,
+        SECOND_BAR_Y,
+        SECOND_BAR_WIDTH,
+        SECOND_BAR_HEIGHT,
+        GxEPD_BLACK
+    );
+
+    if (filledWidth > 0) {
+        display.fillRect(
+            SECOND_BAR_X,
+            SECOND_BAR_Y,
+            filledWidth,
+            SECOND_BAR_HEIGHT,
+            GxEPD_BLACK
+        );
+    }
+}
+
+void drawSecondBar(uint8_t second) {
+    int filledWidth = map(
+        second,
+        0,
+        59,
+        0,
+        SECOND_BAR_WIDTH
+    );
+
+    display.setPartialWindow(
+        SECOND_BAR_X,
+        SECOND_BAR_Y,
+        SECOND_BAR_WIDTH,
+        SECOND_BAR_HEIGHT
+    );
+
+    display.firstPage();
+
+    do {
+        display.fillScreen(GxEPD_WHITE);
+
+        display.drawRect(
+            SECOND_BAR_X,
+            SECOND_BAR_Y,
+            SECOND_BAR_WIDTH,
+            SECOND_BAR_HEIGHT,
+            GxEPD_BLACK
+        );
+
+        if (filledWidth > 0) {
+            display.fillRect(
+                SECOND_BAR_X,
+                SECOND_BAR_Y,
+                filledWidth,
+                SECOND_BAR_HEIGHT,
+                GxEPD_BLACK
+            );
+        }
+
+    } while (display.nextPage());
+}
+
+// ============================================================
+// BORDER DRAWING
+// ============================================================
 
 void drawBordersToBuffer() {
     display.drawLine(0, 25, 400, 25, GxEPD_BLACK);
@@ -518,17 +627,45 @@ void drawBordersToBuffer() {
     display.drawLine(375, 0, 375, 300, GxEPD_BLACK);
 
     for (int x = 25; x < 375; x += 5) {
-        display.drawLine(x, 225, x + 2, 225, GxEPD_BLACK);
+        display.drawLine(
+            x,
+            225,
+            x + 2,
+            225,
+            GxEPD_BLACK
+        );
     }
 
     for (int y = 25; y < 225; y += 5) {
-        display.drawLine(200, y, 200, y + 2, GxEPD_BLACK);
-        display.drawLine(288, y, 288, y + 2, GxEPD_BLACK);
-        display.drawLine(112, y, 112, y + 2, GxEPD_BLACK);
+        display.drawLine(
+            200,
+            y,
+            200,
+            y + 2,
+            GxEPD_BLACK
+        );
+
+        display.drawLine(
+            288,
+            y,
+            288,
+            y + 2,
+            GxEPD_BLACK
+        );
+
+        display.drawLine(
+            112,
+            y,
+            112,
+            y + 2,
+            GxEPD_BLACK
+        );
     }
 }
 
-// ================= TIME DRAWING ===============
+// ============================================================
+// TIME DRAWING
+// ============================================================
 
 void drawHourValues(uint8_t hour24) {
     uint8_t hour = to12Hour(hour24);
@@ -600,7 +737,9 @@ void drawTime(DateTime now) {
     );
 }
 
-// ================= ALARM DISPLAY ===============
+// ============================================================
+// ALARM DISPLAY
+// ============================================================
 
 void drawAlarmRingingScreen(DateTime now) {
     drawTime(now);
@@ -636,7 +775,9 @@ void drawAlarmStatus() {
     );
 }
 
-// ================= SETTING LABELS ===============
+// ============================================================
+// SETTING LABELS
+// ============================================================
 
 void drawSetDayLabel() {
     display.setFont(DATE_FONT);
@@ -674,8 +815,6 @@ void drawSetYearLabel() {
     );
 }
 
-// ================= DEFERRED DISPLAY UPDATE ===============
-
 void renderCurrentSettingValue() {
     if (!settingDisplayDirty) {
         return;
@@ -704,7 +843,9 @@ void renderCurrentSettingValue() {
     }
 }
 
-// ================= FULL SCREEN DRAWING ===============
+// ============================================================
+// FULL DISPLAY
+// ============================================================
 
 void drawFullScreen(DateTime now) {
     uint8_t hour12 = to12Hour(now.hour());
@@ -791,9 +932,18 @@ void drawFullScreen(DateTime now) {
                 ALARM_STATUS_Y2
             );
         }
+
+        drawSecondBarToBuffer(
+            now.second()
+        );
+
     } while (display.nextPage());
 
-    Serial.println("FULL DISPLAY REFRESH");
+    previousSecond = now.second();
+
+    Serial.println(
+        "FULL DISPLAY REFRESH"
+    );
 }
 
 void drawNormalPartial(DateTime now) {
@@ -812,7 +962,9 @@ void drawNormalPartial(DateTime now) {
     drawAlarmStatus();
 }
 
-// ================= RTC ALARM HELPERS ===============
+// ============================================================
+// RTC ALARM HELPERS
+// ============================================================
 
 void loadAlarmFromRTC() {
     byte alarmDay = 0;
@@ -855,7 +1007,8 @@ void loadAlarmFromRTC() {
         alarmMinute = 0;
     }
 
-    alarmEnabled = rtcClock.checkAlarmEnabled(1);
+    alarmEnabled =
+        rtcClock.checkAlarmEnabled(1);
 }
 
 void saveAlarmToRTC() {
@@ -885,7 +1038,9 @@ void saveAlarmToRTC() {
     Serial.println(getAmPm(alarmHour));
 }
 
-// ================= MODE ENTRY ===============
+// ============================================================
+// MODE ENTRY
+// ============================================================
 
 void enterClockSetting(DateTime now) {
     settingHour = now.hour();
@@ -895,6 +1050,7 @@ void enterClockSetting(DateTime now) {
     settingYear = now.year();
 
     settingDisplayDirty = false;
+
     clockMode = SET_HOUR_MODE;
 
     display.setFont(DATE_FONT);
@@ -912,7 +1068,9 @@ void enterClockSetting(DateTime now) {
 
 void enterAlarmSetting() {
     settingDisplayDirty = false;
-    clockMode = SET_ALARM_HOUR_MODE;
+
+    clockMode =
+        SET_ALARM_HOUR_MODE;
 
     drawTimeValues(
         alarmHour,
@@ -929,23 +1087,94 @@ void enterAlarmSetting() {
         DATE_Y2
     );
 
-    Serial.println("SET ALARM HOUR MODE");
+    Serial.println(
+        "SET ALARM HOUR MODE"
+    );
 }
 
-// ================= PN532 SETUP ===============
+// ============================================================
+// NFC
+// ============================================================
+
+bool uidMatches(
+    const uint8_t* uid,
+    uint8_t uidLength,
+    const uint8_t* allowedUid,
+    uint8_t allowedLength
+) {
+    if (uidLength != allowedLength) {
+        return false;
+    }
+
+    for (uint8_t i = 0; i < uidLength; i++) {
+        if (uid[i] != allowedUid[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool isAllowedCard(
+    const uint8_t* uid,
+    uint8_t uidLength
+) {
+    return uidMatches(
+        uid,
+        uidLength,
+        ALLOWED_UID_1,
+        sizeof(ALLOWED_UID_1)
+    ) ||
+    uidMatches(
+        uid,
+        uidLength,
+        ALLOWED_UID_2,
+        sizeof(ALLOWED_UID_2)
+    );
+}
+
+void printUid(
+    const uint8_t* uid,
+    uint8_t uidLength
+) {
+    for (uint8_t i = 0; i < uidLength; i++) {
+        if (uid[i] < 0x10) {
+            Serial.print("0");
+        }
+
+        Serial.print(
+            uid[i],
+            HEX
+        );
+
+        if (i < uidLength - 1) {
+            Serial.print(":");
+        }
+    }
+}
 
 void setupNFC() {
-    Serial.println("Configuring NFC I2C pins");
-
-    bool pinsSet = Wire1.setPins(
-        NFC_SDA_PIN,
-        NFC_SCL_PIN
+    Serial.println(
+        "Configuring NFC I2C pins"
     );
 
-    Serial.print("NFC pins configured: ");
-    Serial.println(pinsSet ? "YES" : "NO");
+    bool pinsSet =
+        Wire1.setPins(
+            NFC_SDA_PIN,
+            NFC_SCL_PIN
+        );
 
-    Serial.println("Starting PN532");
+    Serial.print(
+        "NFC pins configured: "
+    );
+
+    Serial.println(
+        pinsSet ? "YES" : "NO"
+    );
+
+    Serial.println(
+        "Starting PN532"
+    );
 
     nfc.begin();
 
@@ -961,11 +1190,16 @@ void setupNFC() {
         return;
     }
 
-    Serial.print("PN532 found, firmware ");
+    Serial.print(
+        "PN532 found, firmware "
+    );
+
     Serial.print(
         (versionData >> 16) & 0xFF
     );
+
     Serial.print(".");
+
     Serial.println(
         (versionData >> 8) & 0xFF
     );
@@ -981,13 +1215,19 @@ void setupNFC() {
 
     nfcReady = true;
 
-    Serial.println("PN532 ready");
+    Serial.println(
+        "PN532 ready"
+    );
 }
 
-// ================= AUDIO SETUP ===============
+// ============================================================
+// AUDIO
+// ============================================================
 
 void setupAudio() {
-    Serial.println("Starting I2S audio");
+    Serial.println(
+        "Starting I2S audio"
+    );
 
     i2s_chan_config_t channelConfig =
         I2S_CHANNEL_DEFAULT_CONFIG(
@@ -1002,8 +1242,13 @@ void setupAudio() {
             nullptr
         );
 
-    Serial.print("I2S channel create: ");
-    Serial.println(esp_err_to_name(result));
+    Serial.print(
+        "I2S channel create: "
+    );
+
+    Serial.println(
+        esp_err_to_name(result)
+    );
 
     if (result != ESP_OK) {
         audioReady = false;
@@ -1053,8 +1298,13 @@ void setupAudio() {
             &stdConfig
         );
 
-    Serial.print("I2S standard mode init: ");
-    Serial.println(esp_err_to_name(result));
+    Serial.print(
+        "I2S standard mode init: "
+    );
+
+    Serial.println(
+        esp_err_to_name(result)
+    );
 
     if (result != ESP_OK) {
         audioReady = false;
@@ -1066,8 +1316,13 @@ void setupAudio() {
             i2sTxChannel
         );
 
-    Serial.print("I2S channel enable: ");
-    Serial.println(esp_err_to_name(result));
+    Serial.print(
+        "I2S channel enable: "
+    );
+
+    Serial.println(
+        esp_err_to_name(result)
+    );
 
     if (result != ESP_OK) {
         audioReady = false;
@@ -1078,10 +1333,10 @@ void setupAudio() {
     audioReady = true;
     i2sEnabled = true;
 
-    Serial.println("I2S audio ready");
+    Serial.println(
+        "I2S audio ready"
+    );
 }
-
-// ================= AUDIO OUTPUT ===============
 
 void writeAudioBuffer(
     int16_t* buffer,
@@ -1107,7 +1362,10 @@ void writeAudioBuffer(
         );
 
     if (result != ESP_OK) {
-        Serial.print("I2S write error: ");
+        Serial.print(
+            "I2S write error: "
+        );
+
         Serial.println(
             esp_err_to_name(result)
         );
@@ -1158,8 +1416,6 @@ void playSilenceChunk() {
     );
 }
 
-// ================= ALARM BEEP CONTROL ===============
-
 void startAlarmBeep() {
     if (!audioReady) {
         Serial.println(
@@ -1191,9 +1447,13 @@ void startAlarmBeep() {
     }
 
     beepOn = true;
-    previousBeepMillis = millis();
 
-    Serial.println("Alarm beep started");
+    previousBeepMillis =
+        millis();
+
+    Serial.println(
+        "Alarm beep started"
+    );
 }
 
 void stopAlarmBeep() {
@@ -1209,7 +1469,10 @@ void stopAlarmBeep() {
                 i2sTxChannel
             );
 
-        Serial.print("I2S disabled: ");
+        Serial.print(
+            "I2S disabled: "
+        );
+
         Serial.println(
             esp_err_to_name(result)
         );
@@ -1219,11 +1482,16 @@ void stopAlarmBeep() {
         }
     }
 
-    Serial.println("Alarm beep stopped");
+    Serial.println(
+        "Alarm beep stopped"
+    );
 }
 
 void updateAlarmBeep() {
-    if (!audioReady || !i2sEnabled) {
+    if (
+        !audioReady ||
+        !i2sEnabled
+    ) {
         return;
     }
 
@@ -1238,8 +1506,7 @@ void updateAlarmBeep() {
         previousBeepMillis =
             currentMillis;
 
-        beepOn =
-            !beepOn;
+        beepOn = !beepOn;
     }
 
     if (beepOn) {
@@ -1249,24 +1516,579 @@ void updateAlarmBeep() {
     }
 }
 
-// ================= ALARM DISMISS ===============
+// ============================================================
+// LORA BIT-BANGED SPI
+// ============================================================
 
-void dismissAlarm(const char* reason) {
+uint8_t loraSpiTransfer(uint8_t value) {
+    uint8_t result = 0;
+
+    for (int i = 7; i >= 0; i--) {
+        digitalWrite(
+            LORA_SCK,
+            LOW
+        );
+
+        digitalWrite(
+            LORA_MOSI,
+            (value >> i) & 1
+        );
+
+        delayMicroseconds(2);
+
+        digitalWrite(
+            LORA_SCK,
+            HIGH
+        );
+
+        result <<= 1;
+
+        if (
+            digitalRead(
+                LORA_MISO
+            )
+        ) {
+            result |= 1;
+        }
+
+        delayMicroseconds(2);
+    }
+
+    digitalWrite(
+        LORA_SCK,
+        LOW
+    );
+
+    return result;
+}
+
+void loraWriteRegister(
+    uint8_t address,
+    uint8_t value
+) {
+    digitalWrite(
+        LORA_CS,
+        LOW
+    );
+
+    loraSpiTransfer(
+        address | 0x80
+    );
+
+    loraSpiTransfer(
+        value
+    );
+
+    digitalWrite(
+        LORA_CS,
+        HIGH
+    );
+}
+
+uint8_t loraReadRegister(
+    uint8_t address
+) {
+    digitalWrite(
+        LORA_CS,
+        LOW
+    );
+
+    loraSpiTransfer(
+        address & 0x7F
+    );
+
+    uint8_t value =
+        loraSpiTransfer(
+            0x00
+        );
+
+    digitalWrite(
+        LORA_CS,
+        HIGH
+    );
+
+    return value;
+}
+
+void resetLoRa() {
+    digitalWrite(
+        LORA_RST,
+        LOW
+    );
+
+    delay(10);
+
+    digitalWrite(
+        LORA_RST,
+        HIGH
+    );
+
+    delay(20);
+}
+
+void setLoRaFrequency(
+    uint32_t frequency
+) {
+    uint64_t frf =
+        ((uint64_t)frequency << 19) /
+        32000000;
+
+    loraWriteRegister(
+        REG_FRF_MSB,
+        frf >> 16
+    );
+
+    loraWriteRegister(
+        REG_FRF_MID,
+        frf >> 8
+    );
+
+    loraWriteRegister(
+        REG_FRF_LSB,
+        frf
+    );
+}
+
+void enterLoRaReceiveMode() {
+    loraWriteRegister(
+        REG_DIO_MAPPING_1,
+        0x00
+    );
+
+    loraWriteRegister(
+        REG_IRQ_FLAGS,
+        0xFF
+    );
+
+    loraWriteRegister(
+        REG_OP_MODE,
+        MODE_LONG_RANGE_MODE |
+        MODE_RX_CONTINUOUS
+    );
+}
+
+bool setupLoRa() {
+    Serial.println(
+        "Starting LoRa"
+    );
+
+    pinMode(
+        LORA_CS,
+        OUTPUT
+    );
+
+    pinMode(
+        LORA_RST,
+        OUTPUT
+    );
+
+    pinMode(
+        LORA_SCK,
+        OUTPUT
+    );
+
+    pinMode(
+        LORA_MOSI,
+        OUTPUT
+    );
+
+    pinMode(
+        LORA_MISO,
+        INPUT
+    );
+
+    pinMode(
+        LORA_DIO0,
+        INPUT
+    );
+
+    digitalWrite(
+        LORA_CS,
+        HIGH
+    );
+
+    digitalWrite(
+        LORA_RST,
+        HIGH
+    );
+
+    digitalWrite(
+        LORA_SCK,
+        LOW
+    );
+
+    digitalWrite(
+        LORA_MOSI,
+        LOW
+    );
+
+    resetLoRa();
+
+    uint8_t version =
+        loraReadRegister(
+            REG_VERSION
+        );
+
+    Serial.print(
+        "LoRa RegVersion = 0x"
+    );
+
+    Serial.println(
+        version,
+        HEX
+    );
+
+    if (version != 0x12) {
+        Serial.println(
+            "SX127x not detected - LoRa disabled"
+        );
+
+        loraReady = false;
+        return false;
+    }
+
+    Serial.println(
+        "SX127x detected"
+    );
+
+    loraWriteRegister(
+        REG_OP_MODE,
+        MODE_LONG_RANGE_MODE |
+        MODE_SLEEP
+    );
+
+    delay(10);
+
+    setLoRaFrequency(
+        915000000
+    );
+
+    loraWriteRegister(
+        REG_FIFO_TX_BASE_ADDR,
+        0x00
+    );
+
+    loraWriteRegister(
+        REG_FIFO_RX_BASE_ADDR,
+        0x00
+    );
+
+    loraWriteRegister(
+        REG_MODEM_CONFIG_1,
+        0x72
+    );
+
+    loraWriteRegister(
+        REG_MODEM_CONFIG_2,
+        0x74
+    );
+
+    loraWriteRegister(
+        REG_MODEM_CONFIG_3,
+        0x04
+    );
+
+    loraWriteRegister(
+        REG_PREAMBLE_MSB,
+        0x00
+    );
+
+    loraWriteRegister(
+        REG_PREAMBLE_LSB,
+        0x08
+    );
+
+    loraWriteRegister(
+        REG_PA_CONFIG,
+        0x8F
+    );
+
+    loraWriteRegister(
+        REG_PA_DAC,
+        0x84
+    );
+
+    enterLoRaReceiveMode();
+
+    loraReady = true;
+
+    Serial.println(
+        "LoRa ready"
+    );
+
+    return true;
+}
+
+bool sendLoRaPacket(
+    const char* message
+) {
+    if (!loraReady) {
+        return false;
+    }
+
+    uint8_t length =
+        strlen(message);
+
+    Serial.print(
+        "LoRa sending: "
+    );
+
+    Serial.println(
+        message
+    );
+
+    loraWriteRegister(
+        REG_OP_MODE,
+        MODE_LONG_RANGE_MODE |
+        MODE_STDBY
+    );
+
+    loraWriteRegister(
+        REG_FIFO_ADDR_PTR,
+        0x00
+    );
+
+    for (
+        uint8_t i = 0;
+        i < length;
+        i++
+    ) {
+        loraWriteRegister(
+            REG_FIFO,
+            message[i]
+        );
+    }
+
+    loraWriteRegister(
+        REG_PAYLOAD_LENGTH,
+        length
+    );
+
+    loraWriteRegister(
+        REG_DIO_MAPPING_1,
+        0x40
+    );
+
+    loraWriteRegister(
+        REG_IRQ_FLAGS,
+        0xFF
+    );
+
+    loraWriteRegister(
+        REG_OP_MODE,
+        MODE_LONG_RANGE_MODE |
+        MODE_TX
+    );
+
+    unsigned long start =
+        millis();
+
+    while (
+        !(
+            loraReadRegister(
+                REG_IRQ_FLAGS
+            ) &
+            IRQ_TX_DONE_MASK
+        )
+    ) {
+        if (
+            millis() - start >
+            3000
+        ) {
+            Serial.println(
+                "LoRa TX TIMEOUT"
+            );
+
+            enterLoRaReceiveMode();
+
+            return false;
+        }
+
+        delay(1);
+    }
+
+    loraWriteRegister(
+        REG_IRQ_FLAGS,
+        IRQ_TX_DONE_MASK
+    );
+
+    enterLoRaReceiveMode();
+
+    Serial.println(
+        "LoRa packet sent"
+    );
+
+    return true;
+}
+
+// ============================================================
+// ALARM DISMISS
+// ============================================================
+
+void dismissAlarm(
+    const char* reason,
+    bool notifyRemote = true
+) {
+    if (!alarmRinging) {
+        return;
+    }
+
     alarmRinging = false;
 
     stopAlarmBeep();
 
+    rtcClock.checkIfAlarm(1);
+
     previousMinute = 255;
+    previousSecond = 255;
+
     forceFullRefresh = true;
 
-    Serial.print("ALARM DISMISSED - ");
-    Serial.println(reason);
+    Serial.print(
+        "ALARM DISMISSED - "
+    );
+
+    Serial.println(
+        reason
+    );
+
+    if (
+        notifyRemote &&
+        loraReady
+    ) {
+        sendLoRaPacket(
+            "ALARM_STOPPED"
+        );
+    }
 }
 
-// ================= RFID CHECK ===============
+// ============================================================
+// LORA RECEIVE
+// ============================================================
 
-void checkAlarmRFID() {
-    if (!alarmRinging || !nfcReady) {
+void handleLoRaMessage(
+    const String& message
+) {
+    if (
+        message ==
+        "ALARM_OFF"
+    ) {
+        Serial.println(
+            "REMOTE ALARM_OFF RECEIVED"
+        );
+
+        if (alarmRinging) {
+            dismissAlarm(
+                "LORA REMOTE",
+                true
+            );
+        } else {
+            sendLoRaPacket(
+                "ALARM_STOPPED"
+            );
+        }
+    }
+}
+
+void checkLoRa() {
+    if (!loraReady) {
+        return;
+    }
+
+    uint8_t flags =
+        loraReadRegister(
+            REG_IRQ_FLAGS
+        );
+
+    if (
+        !(flags & IRQ_RX_DONE_MASK)
+    ) {
+        return;
+    }
+
+    loraWriteRegister(
+        REG_IRQ_FLAGS,
+        flags
+    );
+
+    if (
+        flags &
+        IRQ_PAYLOAD_CRC_ERROR
+    ) {
+        Serial.println(
+            "LoRa CRC error"
+        );
+
+        return;
+    }
+
+    uint8_t length =
+        loraReadRegister(
+            REG_RX_NB_BYTES
+        );
+
+    uint8_t address =
+        loraReadRegister(
+            REG_FIFO_RX_CURRENT_ADDR
+        );
+
+    loraWriteRegister(
+        REG_FIFO_ADDR_PTR,
+        address
+    );
+
+    String message = "";
+
+    for (
+        uint8_t i = 0;
+        i < length;
+        i++
+    ) {
+        message +=
+            (char)loraReadRegister(
+                REG_FIFO
+            );
+    }
+
+    int rssi =
+        loraReadRegister(
+            REG_RSSI_VALUE
+        ) - 157;
+
+    Serial.print(
+        "LoRa received: "
+    );
+
+    Serial.print(
+        message
+    );
+
+    Serial.print(
+        " RSSI: "
+    );
+
+    Serial.print(
+        rssi
+    );
+
+    Serial.println(
+        " dBm"
+    );
+
+    handleLoRaMessage(
+        message
+    );
+}
+
+// ============================================================
+// NFC CHECK
+// ============================================================
+
+void checkAlarmNFC() {
+    if (
+        !alarmRinging ||
+        !nfcReady
+    ) {
         return;
     }
 
@@ -1296,16 +2118,31 @@ void checkAlarmRFID() {
         return;
     }
 
-    Serial.print("RFID detected: ");
-    printUid(uid, uidLength);
+    Serial.print(
+        "RFID detected: "
+    );
+
+    printUid(
+        uid,
+        uidLength
+    );
+
     Serial.println();
 
-    if (isAllowedCard(uid, uidLength)) {
+    if (
+        isAllowedCard(
+            uid,
+            uidLength
+        )
+    ) {
         Serial.println(
             "Authorized alarm card"
         );
 
-        dismissAlarm("RFID");
+        dismissAlarm(
+            "RFID",
+            true
+        );
     } else {
         Serial.println(
             "Unauthorized RFID card"
@@ -1313,42 +2150,34 @@ void checkAlarmRFID() {
     }
 }
 
-// ================= SETUP ===============
+// ============================================================
+// SETUP
+// ============================================================
 
 void setup() {
     Serial.begin(115200);
     delay(1000);
 
     Serial.println();
-    Serial.println("BOOT");
-
-    // ================= RTC I2C ===============
-
     Serial.println(
-        "Starting RTC I2C bus"
+        "ESP32 ALARM CLOCK"
     );
 
-    bool rtcStarted =
-        Wire.begin(
-            RTC_SDA_PIN,
-            RTC_SCL_PIN,
-            100000
-        );
-
-    Serial.print(
-        "RTC I2C started: "
+    // RTC
+    Wire.begin(
+        RTC_SDA_PIN,
+        RTC_SCL_PIN,
+        100000
     );
 
     Serial.println(
-        rtcStarted ? "YES" : "NO"
+        "RTC I2C started"
     );
 
-    // ================= NFC ===============
-
+    // NFC
     setupNFC();
 
-    // ================= BUTTONS ===============
-
+    // Buttons
     pinMode(
         PLUS_BUTTON,
         INPUT_PULLUP
@@ -1364,16 +2193,41 @@ void setup() {
         INPUT_PULLUP
     );
 
-    // ================= E-INK ===============
+    // E-ink
+    pinMode(
+        EINK_CS_PIN,
+        OUTPUT
+    );
 
-    pinMode(EINK_CS_PIN, OUTPUT);
-    pinMode(EINK_DC_PIN, OUTPUT);
-    pinMode(EINK_RES_PIN, OUTPUT);
-    pinMode(EINK_BUSY_PIN, INPUT);
+    pinMode(
+        EINK_DC_PIN,
+        OUTPUT
+    );
 
-    digitalWrite(EINK_CS_PIN, HIGH);
-    digitalWrite(EINK_DC_PIN, HIGH);
-    digitalWrite(EINK_RES_PIN, HIGH);
+    pinMode(
+        EINK_RES_PIN,
+        OUTPUT
+    );
+
+    pinMode(
+        EINK_BUSY_PIN,
+        INPUT
+    );
+
+    digitalWrite(
+        EINK_CS_PIN,
+        HIGH
+    );
+
+    digitalWrite(
+        EINK_DC_PIN,
+        HIGH
+    );
+
+    digitalWrite(
+        EINK_RES_PIN,
+        HIGH
+    );
 
     SPI.begin(
         EINK_SCK_SCL_PIN,
@@ -1385,35 +2239,31 @@ void setup() {
         "E-ink SPI started"
     );
 
-    Serial.println(
-        "Starting display init"
-    );
-
-    display.init(115200);
-
-    Serial.println(
-        "Display init finished"
+    display.init(
+        115200
     );
 
     display.setRotation(0);
+
     display.setTextColor(
         GxEPD_BLACK
     );
 
-    // ================= RTC ===============
-
     Serial.println(
-        "Loading RTC alarm"
+        "Display ready"
     );
 
+    // RTC alarm
     loadAlarmFromRTC();
 
     Serial.println(
         "RTC ready"
     );
 
-    // ================= AUDIO ===============
+    // LoRa
+    setupLoRa();
 
+    // Audio
     setupAudio();
 
     Serial.println(
@@ -1421,18 +2271,31 @@ void setup() {
     );
 }
 
-// ================= LOOP ===============
+// ============================================================
+// LOOP
+// ============================================================
 
 void loop() {
-    // Explicitly read RTC from Wire / GPIO10 + GPIO11
     DateTime now =
         RTClib::now(Wire);
 
-    updateButton(setButton);
-    updateButton(plusButton);
-    updateButton(minusButton);
+    updateButton(
+        setButton
+    );
 
-    // ================= ALARM TRIGGER ===============
+    updateButton(
+        plusButton
+    );
+
+    updateButton(
+        minusButton
+    );
+
+    checkLoRa();
+
+    // ========================================================
+    // ALARM TRIGGER
+    // ========================================================
 
     if (
         !alarmRinging &&
@@ -1446,26 +2309,44 @@ void loop() {
 
         startAlarmBeep();
 
+        if (loraReady) {
+            sendLoRaPacket(
+                "ALARM_STARTED"
+            );
+        }
+
         drawAlarmRingingScreen(
             now
         );
     }
 
-    // ================= ALARM RINGING ===============
+    // ========================================================
+    // ALARM ACTIVE
+    // ========================================================
 
     if (alarmRinging) {
         updateAlarmBeep();
 
-        checkAlarmRFID();
+        checkLoRa();
 
         if (!alarmRinging) {
             delay(1);
             return;
         }
 
-        if (setButton.shortPressed) {
+        checkAlarmNFC();
+
+        if (!alarmRinging) {
+            delay(1);
+            return;
+        }
+
+        if (
+            setButton.shortPressed
+        ) {
             dismissAlarm(
-                "SET BUTTON"
+                "SET BUTTON",
+                true
             );
         }
 
@@ -1473,9 +2354,18 @@ void loop() {
         return;
     }
 
-    // ================= NORMAL MODE ===============
+    // ========================================================
+    // NORMAL CLOCK MODE
+    // ========================================================
 
-    if (clockMode == NORMAL_MODE) {
+    if (
+        clockMode ==
+        NORMAL_MODE
+    ) {
+        // --------------------------------------------
+        // Minute update
+        // --------------------------------------------
+
         if (
             now.minute() !=
             previousMinute
@@ -1483,14 +2373,21 @@ void loop() {
             if (
                 forceFullRefresh ||
                 minuteUpdatesSinceFullRefresh >=
-                    FULL_REFRESH_INTERVAL - 1
+                FULL_REFRESH_INTERVAL - 1
             ) {
-                drawFullScreen(now);
+                drawFullScreen(
+                    now
+                );
 
-                minuteUpdatesSinceFullRefresh = 0;
-                forceFullRefresh = false;
+                minuteUpdatesSinceFullRefresh =
+                    0;
+
+                forceFullRefresh =
+                    false;
             } else {
-                drawNormalPartial(now);
+                drawNormalPartial(
+                    now
+                );
 
                 minuteUpdatesSinceFullRefresh++;
             }
@@ -1499,22 +2396,66 @@ void loop() {
                 now.minute();
         }
 
-        if (setButton.longPressed) {
-            enterClockSetting(now);
-        } else if (plusButton.longPressed) {
+        // --------------------------------------------
+        // Seconds progress bar
+        // --------------------------------------------
+
+        if (
+            now.second() !=
+            previousSecond
+        ) {
+            drawSecondBar(
+                now.second()
+            );
+
+            previousSecond =
+                now.second();
+        }
+
+        // --------------------------------------------
+        // Enter clock setting
+        // --------------------------------------------
+
+        if (
+            setButton.longPressed
+        ) {
+            enterClockSetting(
+                now
+            );
+        }
+
+        // --------------------------------------------
+        // Enter alarm setting
+        // --------------------------------------------
+
+        else if (
+            plusButton.longPressed
+        ) {
             enterAlarmSetting();
-        } else if (minusButton.longPressed) {
+        }
+
+        // --------------------------------------------
+        // Toggle alarm
+        // --------------------------------------------
+
+        else if (
+            minusButton.longPressed
+        ) {
             alarmEnabled =
                 !alarmEnabled;
 
             if (alarmEnabled) {
-                rtcClock.turnOnAlarm(1);
+                rtcClock.turnOnAlarm(
+                    1
+                );
 
                 Serial.println(
                     "ALARM 1 ENABLED"
                 );
             } else {
-                rtcClock.turnOffAlarm(1);
+                rtcClock.turnOffAlarm(
+                    1
+                );
 
                 Serial.println(
                     "ALARM 1 DISABLED"
@@ -1525,21 +2466,34 @@ void loop() {
         }
     }
 
-    // ================= SET HOUR =================
+    // ========================================================
+    // SET HOUR
+    // ========================================================
 
-    else if (clockMode == SET_HOUR_MODE) {
-        if (plusButton.shortPressed) {
+    else if (
+        clockMode ==
+        SET_HOUR_MODE
+    ) {
+        if (
+            plusButton.shortPressed
+        ) {
             settingHour++;
 
-            if (settingHour > 23) {
+            if (
+                settingHour > 23
+            ) {
                 settingHour = 0;
             }
 
             markSettingDisplayDirty();
         }
 
-        if (minusButton.shortPressed) {
-            if (settingHour == 0) {
+        if (
+            minusButton.shortPressed
+        ) {
+            if (
+                settingHour == 0
+            ) {
                 settingHour = 23;
             } else {
                 settingHour--;
@@ -1548,11 +2502,18 @@ void loop() {
             markSettingDisplayDirty();
         }
 
-        if (setButton.shortPressed) {
-            settingDisplayDirty = false;
-            clockMode = SET_MINUTE_MODE;
+        if (
+            setButton.shortPressed
+        ) {
+            settingDisplayDirty =
+                false;
 
-            display.setFont(DATE_FONT);
+            clockMode =
+                SET_MINUTE_MODE;
+
+            display.setFont(
+                DATE_FONT
+            );
 
             drawCenteredText(
                 "SET MIN",
@@ -1564,21 +2525,34 @@ void loop() {
         }
     }
 
-    // ================= SET MINUTE =================
+    // ========================================================
+    // SET MINUTE
+    // ========================================================
 
-    else if (clockMode == SET_MINUTE_MODE) {
-        if (plusButton.shortPressed) {
+    else if (
+        clockMode ==
+        SET_MINUTE_MODE
+    ) {
+        if (
+            plusButton.shortPressed
+        ) {
             settingMinute++;
 
-            if (settingMinute > 59) {
+            if (
+                settingMinute > 59
+            ) {
                 settingMinute = 0;
             }
 
             markSettingDisplayDirty();
         }
 
-        if (minusButton.shortPressed) {
-            if (settingMinute == 0) {
+        if (
+            minusButton.shortPressed
+        ) {
+            if (
+                settingMinute == 0
+            ) {
                 settingMinute = 59;
             } else {
                 settingMinute--;
@@ -1587,36 +2561,56 @@ void loop() {
             markSettingDisplayDirty();
         }
 
-        if (setButton.shortPressed) {
-            settingDisplayDirty = false;
-            clockMode = SET_DAY_MODE;
+        if (
+            setButton.shortPressed
+        ) {
+            settingDisplayDirty =
+                false;
+
+            clockMode =
+                SET_DAY_MODE;
 
             drawSetDayLabel();
         }
     }
 
-    // ================= SET DAY =================
+    // ========================================================
+    // SET DAY
+    // ========================================================
 
-    else if (clockMode == SET_DAY_MODE) {
+    else if (
+        clockMode ==
+        SET_DAY_MODE
+    ) {
         uint8_t maxDay =
             daysInMonth(
                 settingMonth,
                 settingYear
             );
 
-        if (plusButton.shortPressed) {
+        if (
+            plusButton.shortPressed
+        ) {
             settingDay++;
 
-            if (settingDay > maxDay) {
+            if (
+                settingDay >
+                maxDay
+            ) {
                 settingDay = 1;
             }
 
             markSettingDisplayDirty();
         }
 
-        if (minusButton.shortPressed) {
-            if (settingDay <= 1) {
-                settingDay = maxDay;
+        if (
+            minusButton.shortPressed
+        ) {
+            if (
+                settingDay <= 1
+            ) {
+                settingDay =
+                    maxDay;
             } else {
                 settingDay--;
             }
@@ -1624,74 +2618,117 @@ void loop() {
             markSettingDisplayDirty();
         }
 
-        if (setButton.shortPressed) {
-            settingDisplayDirty = false;
-            clockMode = SET_MONTH_MODE;
+        if (
+            setButton.shortPressed
+        ) {
+            settingDisplayDirty =
+                false;
+
+            clockMode =
+                SET_MONTH_MODE;
 
             drawSetMonthLabel();
         }
     }
 
-    // ================= SET MONTH =================
+    // ========================================================
+    // SET MONTH
+    // ========================================================
 
-    else if (clockMode == SET_MONTH_MODE) {
-        if (plusButton.shortPressed) {
+    else if (
+        clockMode ==
+        SET_MONTH_MODE
+    ) {
+        if (
+            plusButton.shortPressed
+        ) {
             settingMonth++;
 
-            if (settingMonth > 12) {
+            if (
+                settingMonth > 12
+            ) {
                 settingMonth = 1;
             }
 
             clampSettingDay();
+
             markSettingDisplayDirty();
         }
 
-        if (minusButton.shortPressed) {
-            if (settingMonth <= 1) {
+        if (
+            minusButton.shortPressed
+        ) {
+            if (
+                settingMonth <= 1
+            ) {
                 settingMonth = 12;
             } else {
                 settingMonth--;
             }
 
             clampSettingDay();
+
             markSettingDisplayDirty();
         }
 
-        if (setButton.shortPressed) {
-            settingDisplayDirty = false;
-            clockMode = SET_YEAR_MODE;
+        if (
+            setButton.shortPressed
+        ) {
+            settingDisplayDirty =
+                false;
+
+            clockMode =
+                SET_YEAR_MODE;
 
             drawSetYearLabel();
         }
     }
 
-    // ================= SET YEAR =================
+    // ========================================================
+    // SET YEAR
+    // ========================================================
 
-    else if (clockMode == SET_YEAR_MODE) {
-        if (plusButton.shortPressed) {
+    else if (
+        clockMode ==
+        SET_YEAR_MODE
+    ) {
+        if (
+            plusButton.shortPressed
+        ) {
             settingYear++;
 
-            if (settingYear > 2099) {
+            if (
+                settingYear > 2099
+            ) {
                 settingYear = 2000;
             }
 
             clampSettingDay();
+
             markSettingDisplayDirty();
         }
 
-        if (minusButton.shortPressed) {
-            if (settingYear <= 2000) {
+        if (
+            minusButton.shortPressed
+        ) {
+            if (
+                settingYear <= 2000
+            ) {
                 settingYear = 2099;
             } else {
                 settingYear--;
             }
 
             clampSettingDay();
+
             markSettingDisplayDirty();
         }
 
-        if (setButton.shortPressed) {
-            settingDisplayDirty = false;
+        if (
+            setButton.shortPressed
+        ) {
+            settingDisplayDirty =
+                false;
 
             DateTime newTime(
                 settingYear,
@@ -1712,6 +2749,9 @@ void loop() {
             previousMinute =
                 255;
 
+            previousSecond =
+                255;
+
             forceFullRefresh =
                 true;
 
@@ -1721,24 +2761,34 @@ void loop() {
         }
     }
 
-    // ================= SET ALARM HOUR =================
+    // ========================================================
+    // SET ALARM HOUR
+    // ========================================================
 
     else if (
         clockMode ==
         SET_ALARM_HOUR_MODE
     ) {
-        if (plusButton.shortPressed) {
+        if (
+            plusButton.shortPressed
+        ) {
             alarmHour++;
 
-            if (alarmHour > 23) {
+            if (
+                alarmHour > 23
+            ) {
                 alarmHour = 0;
             }
 
             markSettingDisplayDirty();
         }
 
-        if (minusButton.shortPressed) {
-            if (alarmHour == 0) {
+        if (
+            minusButton.shortPressed
+        ) {
+            if (
+                alarmHour == 0
+            ) {
                 alarmHour = 23;
             } else {
                 alarmHour--;
@@ -1747,8 +2797,11 @@ void loop() {
             markSettingDisplayDirty();
         }
 
-        if (setButton.shortPressed) {
-            settingDisplayDirty = false;
+        if (
+            setButton.shortPressed
+        ) {
+            settingDisplayDirty =
+                false;
 
             clockMode =
                 SET_ALARM_MINUTE_MODE;
@@ -1767,24 +2820,34 @@ void loop() {
         }
     }
 
-    // ================= SET ALARM MINUTE =================
+    // ========================================================
+    // SET ALARM MINUTE
+    // ========================================================
 
     else if (
         clockMode ==
         SET_ALARM_MINUTE_MODE
     ) {
-        if (plusButton.shortPressed) {
+        if (
+            plusButton.shortPressed
+        ) {
             alarmMinute++;
 
-            if (alarmMinute > 59) {
+            if (
+                alarmMinute > 59
+            ) {
                 alarmMinute = 0;
             }
 
             markSettingDisplayDirty();
         }
 
-        if (minusButton.shortPressed) {
-            if (alarmMinute == 0) {
+        if (
+            minusButton.shortPressed
+        ) {
+            if (
+                alarmMinute == 0
+            ) {
                 alarmMinute = 59;
             } else {
                 alarmMinute--;
@@ -1793,8 +2856,11 @@ void loop() {
             markSettingDisplayDirty();
         }
 
-        if (setButton.shortPressed) {
-            settingDisplayDirty = false;
+        if (
+            setButton.shortPressed
+        ) {
+            settingDisplayDirty =
+                false;
 
             saveAlarmToRTC();
 
@@ -1802,6 +2868,9 @@ void loop() {
                 NORMAL_MODE;
 
             previousMinute =
+                255;
+
+            previousSecond =
                 255;
 
             forceFullRefresh =
