@@ -28,7 +28,6 @@ extern bool alarmEnabled;
 extern bool alarmRinging;
 
 extern uint8_t previousMinute;
-extern uint8_t previousSecond;
 extern uint8_t minuteUpdatesSinceFullRefresh;
 
 extern bool forceFullRefresh;

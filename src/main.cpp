@@ -11,38 +11,6 @@
 #include "settingsController.h"
 
 // ============================================================
-// NORMAL CLOCK DISPLAY
-// ============================================================
-
-void updateNormalClockDisplay(const DateTime& now) {
-    if (clockMode != NORMAL_MODE) return;
-
-    // Minute update
-    if (now.minute() != previousMinute) {
-        if (
-            forceFullRefresh ||
-            minuteUpdatesSinceFullRefresh >= FULL_REFRESH_INTERVAL - 1
-        ) {
-            drawFullScreen(now);
-
-            minuteUpdatesSinceFullRefresh = 0;
-            forceFullRefresh = false;
-        } else {
-            drawNormalPartial(now);
-            minuteUpdatesSinceFullRefresh++;
-        }
-
-        previousMinute = now.minute();
-    }
-
-    // Seconds progress bar
-    if (now.second() != previousSecond) {
-        drawSecondBar(now.second());
-        previousSecond = now.second();
-    }
-}
-
-// ============================================================
 // SETUP
 // ============================================================
 

@@ -1,7 +1,5 @@
 #include "alarmController.h"
-
 #include <Arduino.h>
-
 #include "appState.h"
 #include "buttons.h"
 #include "rtcModule.h"
@@ -23,7 +21,6 @@ void dismissAlarm(const char* reason, bool notifyRemote) {
     clearRTCAlarmFlag();
 
     previousMinute = 255;
-    previousSecond = 255;
     forceFullRefresh = true;
 
     Serial.print("ALARM DISMISSED - ");

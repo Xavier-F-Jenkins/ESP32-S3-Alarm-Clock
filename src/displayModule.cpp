@@ -1,12 +1,9 @@
 #include "displayModule.h"
-
 #include <SPI.h>
 #include <GxEPD2_BW.h>
 #include <Adafruit_GFX.h>
-
 #include <InconsolataBold75pt7b.h>
 #include <InconsolataBold24pt7b.h>
-
 #include "config.h"
 #include "appState.h"
 #include "rtcModule.h"
@@ -54,11 +51,6 @@
 #define ALARM_STATUS_Y1 25
 #define ALARM_STATUS_X2 95
 #define ALARM_STATUS_Y2 60
-
-#define SECOND_BAR_X 25
-#define SECOND_BAR_Y 285
-#define SECOND_BAR_WIDTH 350
-#define SECOND_BAR_HEIGHT 10
 
 #define TIME_FONT_XL &inconsolata_bold75pt7b
 #define DATE_FONT &inconsolata_bold24pt7b
@@ -172,28 +164,6 @@ static void drawBordersToBuffer() {
         display.drawLine(200, y, 200, y + 2, GxEPD_BLACK);
         display.drawLine(288, y, 288, y + 2, GxEPD_BLACK);
         display.drawLine(112, y, 112, y + 2, GxEPD_BLACK);
-    }
-}
-
-static void drawSecondBarToBuffer(uint8_t second) {
-    int filledWidth = map(second, 0, 59, 0, SECOND_BAR_WIDTH);
-
-    display.drawRect(
-        SECOND_BAR_X,
-        SECOND_BAR_Y,
-        SECOND_BAR_WIDTH,
-        SECOND_BAR_HEIGHT,
-        GxEPD_BLACK
-    );
-
-    if (filledWidth > 0) {
-        display.fillRect(
-            SECOND_BAR_X,
-            SECOND_BAR_Y,
-            filledWidth,
-            SECOND_BAR_HEIGHT,
-            GxEPD_BLACK
-        );
     }
 }
 
@@ -321,42 +291,6 @@ void drawSetYearLabel() {
     drawStatusText("SET YEAR " + String(settingYear));
 }
 
-void drawSecondBar(uint8_t second) {
-    int filledWidth = map(second, 0, 59, 0, SECOND_BAR_WIDTH);
-
-    display.setPartialWindow(
-        SECOND_BAR_X,
-        SECOND_BAR_Y,
-        SECOND_BAR_WIDTH,
-        SECOND_BAR_HEIGHT
-    );
-
-    display.firstPage();
-
-    do {
-        display.fillScreen(GxEPD_WHITE);
-
-        display.drawRect(
-            SECOND_BAR_X,
-            SECOND_BAR_Y,
-            SECOND_BAR_WIDTH,
-            SECOND_BAR_HEIGHT,
-            GxEPD_BLACK
-        );
-
-        if (filledWidth > 0) {
-            display.fillRect(
-                SECOND_BAR_X,
-                SECOND_BAR_Y,
-                filledWidth,
-                SECOND_BAR_HEIGHT,
-                GxEPD_BLACK
-            );
-        }
-
-    } while (display.nextPage());
-}
-
 void drawFullScreen(const DateTime& now) {
     uint8_t hour12 = to12Hour(now.hour());
 
@@ -423,11 +357,7 @@ void drawFullScreen(const DateTime& now) {
             );
         }
 
-        drawSecondBarToBuffer(now.second());
-
     } while (display.nextPage());
-
-    previousSecond = now.second();
 
     Serial.println("FULL DISPLAY REFRESH");
 }
@@ -477,4 +407,31 @@ void renderCurrentSettingValue() {
     } else if (clockMode == SET_ALARM_MINUTE_MODE) {
         drawMinuteValues(alarmMinute);
     }
+}
+
+// ============================================================
+// NORMAL CLOCK DISPLAY
+// ============================================================
+
+void updateNormalClockDisplay(const DateTime& now) {
+    if (clockMode != NORMAL_MODE) return;
+
+    // Minute update
+    if (now.minute() != previousMinute) {
+        if (
+            forceFullRefresh ||
+            minuteUpdatesSinceFullRefresh >= FULL_REFRESH_INTERVAL - 1
+        ) {
+            drawFullScreen(now);
+
+            minuteUpdatesSinceFullRefresh = 0;
+            forceFullRefresh = false;
+        } else {
+            drawNormalPartial(now);
+            minuteUpdatesSinceFullRefresh++;
+        }
+
+        previousMinute = now.minute();
+    }
+
 }

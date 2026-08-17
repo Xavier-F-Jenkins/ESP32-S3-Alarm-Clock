@@ -17,8 +17,6 @@ void drawMinuteValues(uint8_t minute);
 void drawAlarmRingingScreen(const DateTime& now);
 void drawAlarmStatus();
 
-void drawSecondBar(uint8_t second);
-
 void drawSetDayLabel();
 void drawSetMonthLabel();
 void drawSetYearLabel();
@@ -27,3 +25,5 @@ void drawStatusText(const String& text);
 
 void markSettingDisplayDirty();
 void renderCurrentSettingValue();
+
+void updateNormalClockDisplay(const DateTime& now);

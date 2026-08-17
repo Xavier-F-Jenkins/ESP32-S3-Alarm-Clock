@@ -1,7 +1,5 @@
 #include "settingsController.h"
-
 #include <Arduino.h>
-
 #include "appState.h"
 #include "buttons.h"
 #include "rtcModule.h"
@@ -240,7 +238,6 @@ static void updateSetYear() {
         clockMode = NORMAL_MODE;
 
         previousMinute = 255;
-        previousSecond = 255;
         forceFullRefresh = true;
 
         Serial.println("CLOCK / DATE SAVED");
@@ -313,7 +310,6 @@ static void updateSetAlarmMinute() {
         clockMode = NORMAL_MODE;
 
         previousMinute = 255;
-        previousSecond = 255;
         forceFullRefresh = true;
 
         Serial.println("ALARM TIME SAVED");

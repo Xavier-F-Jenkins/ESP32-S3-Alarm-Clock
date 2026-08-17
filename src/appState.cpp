@@ -15,7 +15,6 @@ bool alarmEnabled = false;
 bool alarmRinging = false;
 
 uint8_t previousMinute = 255;
-uint8_t previousSecond = 255;
 uint8_t minuteUpdatesSinceFullRefresh = 0;
 
 bool forceFullRefresh = true;

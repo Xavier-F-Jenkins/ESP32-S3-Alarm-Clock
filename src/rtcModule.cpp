@@ -1,7 +1,5 @@
 #include "rtcModule.h"
-
 #include <Wire.h>
-
 #include "config.h"
 #include "appState.h"
 

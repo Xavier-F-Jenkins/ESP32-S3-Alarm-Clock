@@ -1,9 +1,7 @@
 #include "nfcModule.h"
-
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_PN532.h>
-
 #include "config.h"
 
 static Adafruit_PN532 nfc(

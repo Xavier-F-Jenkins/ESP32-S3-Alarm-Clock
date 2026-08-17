@@ -1,9 +1,7 @@
 #include "audioModule.h"
-
 #include <Arduino.h>
 #include <driver/i2s_std.h>
 #include <math.h>
-
 #include "config.h"
 
 static bool beepOn = false;
